@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package hstream.server;
+
+import "google/protobuf/empty.proto";
+import "HStreamApi.proto";
+
+option go_package = "hstream/server";
+
+service HStreamInternal {
+  rpc CreateQueryStream(CreateQueryStreamRequest) returns (CreateQueryStreamResponse) {}
+  rpc RestartQuery(RestartQueryRequest) returns (google.protobuf.Empty) {}
+  rpc TerminateQueries(TerminateQueriesRequest) returns (TerminateQueriesResponse) {}
+
+  rpc CreateSinkConnector(CreateSinkConnectorRequest) returns (Connector) {}
+  rpc RestartConnector(CreateSinkConnectorRequest) returns (Connector) {}
+  rpc TerminateConnector(TerminateConnectorRequest) returns (google.protobuf.Empty) {}
+}
