@@ -2,25 +2,56 @@ package hstream
 
 import (
 	"client/client"
+	hstreampb "client/gen-proto/hstream/server"
 	"client/hstreamrpc"
 	"client/util"
 	"context"
+	"fmt"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/types/known/emptypb"
+	"strings"
 	"sync"
 )
 
+type ServerSet map[string]struct{}
+
 type HStreamClient struct {
 	sync.RWMutex
-	connections   map[string]*grpc.ClientConn
-	serverAddress []string
-	closed        bool
+	connections map[string]*grpc.ClientConn
+	serverInfo  ServerSet
+	closed      bool
+}
+
+func (c *HStreamClient) GetServerInfo() ([]string, error) {
+	c.RLock()
+	defer c.RUnlock()
+	if c.closed {
+		return nil, errors.New("client closed")
+	}
+	if len(c.serverInfo) == 0 {
+		return nil, errors.New("no server info")
+	}
+
+	info := make([]string, 0, len(c.serverInfo))
+	for k := range c.serverInfo {
+		info = append(info, k)
+	}
+	return info, nil
 }
 
 func (c *HStreamClient) SendRequest(ctx context.Context, address string, req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
-	//TODO implement me
-	panic("implement me")
+	conn, err := c.getConnection(address)
+	if err != nil {
+		return nil, err
+	}
+
+	cli := hstreampb.NewHStreamApiClient(conn)
+	ctx1, cancel := context.WithTimeout(ctx, client.REQUESTTIMEOUT)
+	defer cancel()
+	return hstreamrpc.Call(ctx1, cli, req)
 }
 
 func (c *HStreamClient) Close() error {
@@ -29,11 +60,16 @@ func (c *HStreamClient) Close() error {
 }
 
 // NewHStreamClient TODO：use connection pool for each address
-func NewHStreamClient(address []string) *HStreamClient {
+func NewHStreamClient(address string) *HStreamClient {
+	addr := strings.Split(address, ",")
+	set := make(ServerSet, len(addr))
+	for _, v := range addr {
+		set[v] = struct{}{}
+	}
 	cli := &HStreamClient{
-		connections:   make(map[string]*grpc.ClientConn),
-		closed:        false,
-		serverAddress: address,
+		connections: make(map[string]*grpc.ClientConn),
+		closed:      false,
+		serverInfo:  set,
 	}
 	return cli
 }
@@ -44,11 +80,21 @@ func (c *HStreamClient) getConnection(address string) (*grpc.ClientConn, error) 
 		c.RUnlock()
 		return nil, errors.Errorf("Client closed.")
 	}
+
+	if len(c.connections) == 0 {
+		c.RUnlock()
+		if err := c.initConnection(); err != nil {
+			return nil, err
+		}
+		c.RLock()
+	}
+
 	if conn, ok := c.connections[address]; ok {
 		c.RUnlock()
 		return conn, nil
 	}
 	c.RUnlock()
+
 	return c.createConnection(address)
 }
 
@@ -59,14 +105,68 @@ func (c *HStreamClient) createConnection(address string) (*grpc.ClientConn, erro
 		return conn, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	conn, err := grpc.DialContext(ctx, address)
-	cancel()
+	conn, err := c.connect(address)
+	c.connections[address] = conn
 	if err != nil {
 		util.Logger().Warn("Failed to connect to hstreamdb server", zap.String("address", address), zap.Error(err))
 		return nil, err
 	}
 	util.Logger().Info("Connected to hstreamdb server", zap.String("address", address))
-	c.connections[address] = conn
 	return conn, nil
+}
+
+func (c *HStreamClient) connect(address string) (*grpc.ClientConn, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
+	conn, err := grpc.DialContext(ctx, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	cancel()
+	return conn, err
+}
+
+func (c *HStreamClient) initConnection() error {
+	var address string
+	c.Lock()
+	if len(c.connections) > 0 {
+		c.Unlock()
+		return nil
+	}
+	if len(c.serverInfo) == 0 {
+		c.Unlock()
+		return errors.Errorf("No hstreamdb server address")
+	}
+
+	for addr := range c.serverInfo {
+		conn, err := c.connect(addr)
+		if err != nil {
+			util.Logger().Warn("Failed to connect to hstreamdb server", zap.String("address", addr), zap.Error(err))
+			continue
+		}
+		c.connections[addr] = conn
+		address = addr
+		util.Logger().Info("Connected to hstreamdb server", zap.String("address", addr))
+		break
+	}
+	if len(c.connections) == 0 {
+		c.Unlock()
+		return errors.Errorf("Failed to connect to hstreamdb server")
+	}
+	c.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), client.REQUESTTIMEOUT)
+	res, err := c.SendRequest(ctx, address, &hstreamrpc.Request{Type: hstreamrpc.DescribeCluster, Req: &emptypb.Empty{}})
+	if err != nil {
+		cancel()
+		return errors.Errorf("Send DescribeClusterReq to hstreamdb server %s err: %s", address, err.Error())
+	}
+	serverNodes := res.Resp.(*hstreampb.DescribeClusterResponse).GetServerNodes()
+	set := make(ServerSet, len(serverNodes))
+	for _, node := range serverNodes {
+		// FIXME: use a more efficient way to concat address info
+		info := fmt.Sprintf("%s:%d", node.GetHost(), node.GetPort())
+		set[info] = struct{}{}
+	}
+	cancel()
+	c.Lock()
+	c.serverInfo = set
+	c.Unlock()
+	return nil
 }
