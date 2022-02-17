@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	cli := hstream.NewHStreamClient([]string{"localhost:8080"})
+	cli := hstream.NewHStreamClient("localhost:8080,localhost:8081")
 	stream := hstream.NewStream(cli)
 	// batchAppendStream := hstream.NewStream(cli, hstream.EnableBatch(100))
 	// timeTriggerStream := hstream.NewStream(cli, hstream.Timeout(1 * time.Second))
