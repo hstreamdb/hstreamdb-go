@@ -34,7 +34,7 @@ type RecordHeader struct {
 type HStreamRecord interface {
 	GetHeader() RecordHeader
 	GetPayLoad() []byte
-	ToHStreamRecord() server.HStreamRecord
+	ToHStreamRecord() *server.HStreamRecord
 }
 
 type RawRecord struct {
@@ -42,17 +42,8 @@ type RawRecord struct {
 	payLoad []byte
 }
 
-func NewRawRecord(payload []byte) RawRecord {
-	return RawRecord{
-		header: RecordHeader{
-			tp: RAWRECORD,
-		},
-		payLoad: payload,
-	}
-}
-
-func NewRawRecordWithKey(payload []byte, key string) RawRecord {
-	return RawRecord{
+func NewRawRecord(key string, payload []byte) *RawRecord {
+	return &RawRecord{
 		header: RecordHeader{
 			tp:  RAWRECORD,
 			key: key,
@@ -69,8 +60,8 @@ func (r *RawRecord) GetPayLoad() []byte {
 	return r.payLoad
 }
 
-func (r *RawRecord) ToHStreamRecord() server.HStreamRecord {
-	return server.HStreamRecord{
+func (r *RawRecord) ToHStreamRecord() *server.HStreamRecord {
+	return &server.HStreamRecord{
 		Header: &server.HStreamRecordHeader{
 			Flag:       server.HStreamRecordHeader_RAW,
 			Attributes: r.header.attributes,
@@ -96,17 +87,8 @@ type HRecord struct {
 	payLoad []byte
 }
 
-func NewHRecord(payload []byte) HRecord {
-	return HRecord{
-		header: RecordHeader{
-			tp: HRECORD,
-		},
-		payLoad: payload,
-	}
-}
-
-func NewHRecordWithKey(payload []byte, key string) HRecord {
-	return HRecord{
+func NewHRecord(key string, payload []byte) *HRecord {
+	return &HRecord{
 		header: RecordHeader{
 			tp:  HRECORD,
 			key: key,
@@ -123,8 +105,8 @@ func (h *HRecord) GetPayLoad() []byte {
 	return h.payLoad
 }
 
-func (h *HRecord) ToHStreamRecord() server.HStreamRecord {
-	return server.HStreamRecord{
+func (h *HRecord) ToHStreamRecord() *server.HStreamRecord {
+	return &server.HStreamRecord{
 		Header: &server.HStreamRecordHeader{
 			Flag:       server.HStreamRecordHeader_JSON,
 			Attributes: h.header.attributes,

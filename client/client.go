@@ -27,11 +27,25 @@ type Iter interface {
 	Close()
 }
 
+type AppendResult interface {
+	Ready() (*hstreampb.RecordId, error)
+	SetError(err error)
+	SetResponse(res interface{})
+}
+
+type StreamProducer interface {
+	Append(tp RecordType, data []byte) AppendResult
+	Stop()
+}
+
+type ProducerOpt func(producer StreamProducer)
+
 type Stream interface {
 	Create(ctx context.Context, streamName string, replicationFactor uint32) error
 	Delete(ctx context.Context, streamName string) error
 	List(ctx context.Context) (*StreamIter, error)
-	Append(ctx context.Context, streamName string, key string, tp RecordType, data []byte)
+	//Append(ctx context.Context, streamName string, key string, tp RecordType, data []byte) (AppendResult, error)
+	MakeProducer(streamName string, key string, opts ...ProducerOpt) StreamProducer
 }
 
 type MsgHandler func(item interface{})

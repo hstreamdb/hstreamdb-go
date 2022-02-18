@@ -105,3 +105,42 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 	}
 	return resp, err
 }
+
+type RPCAppendRes struct {
+	ready chan struct{}
+	resp  *hstreampb.RecordId
+	Err   error
+}
+
+func (r *RPCAppendRes) String() string {
+	if r.Err != nil {
+		return r.Err.Error()
+	}
+	return r.resp.String()
+}
+
+func (r *RPCAppendRes) Ready() (*hstreampb.RecordId, error) {
+	if r.Err != nil {
+		return nil, r.Err
+	}
+
+	<-r.ready
+	return r.resp, nil
+}
+
+func (r *RPCAppendRes) SetError(err error) {
+	r.Err = err
+	r.ready <- struct{}{}
+}
+
+func (r *RPCAppendRes) SetResponse(res interface{}) {
+	r.resp = res.(*hstreampb.RecordId)
+	r.ready <- struct{}{}
+}
+
+func NewRPCAppendRes() *RPCAppendRes {
+	r := &RPCAppendRes{
+		ready: make(chan struct{}, 1),
+	}
+	return r
+}
