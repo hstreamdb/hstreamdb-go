@@ -33,6 +33,11 @@ type AppendResult interface {
 	SetResponse(res interface{})
 }
 
+type FetchResult interface {
+	GetResult() ([]*hstreampb.ReceivedRecord, error)
+	SetError(err error)
+}
+
 type StreamProducer interface {
 	Append(tp RecordType, data []byte) AppendResult
 	Stop()
@@ -44,18 +49,24 @@ type Stream interface {
 	Create(ctx context.Context, streamName string, replicationFactor uint32) error
 	Delete(ctx context.Context, streamName string) error
 	List(ctx context.Context) (*StreamIter, error)
-	//Append(ctx context.Context, streamName string, key string, tp RecordType, data []byte) (AppendResult, error)
 	MakeProducer(streamName string, key string, opts ...ProducerOpt) StreamProducer
 }
 
-type MsgHandler func(item interface{})
+type FetchResHandler interface {
+	HandleRes(result FetchResult)
+}
+
+type StreamConsumer interface {
+	Fetch(ctx context.Context, handler FetchResHandler)
+	Stop()
+}
 
 type Subscription interface {
 	Create(ctx context.Context, subId string, streamName string, ackTimeout int32) error
 	Delete(ctx context.Context, subId string) error
 	List(ctx context.Context) (*SubIter, error)
 	CheckExist(ctx context.Context, subId string) (bool, error)
-	Fetch(ctx context.Context, subId string, key string, handler MsgHandler) error
+	MakeConsumer(subId string, consumerName string) StreamConsumer
 }
 
 type baseIter struct {

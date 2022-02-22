@@ -96,10 +96,10 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 		resp.Resp, err = cli.LookupSubscription(ctx, req.Req.(*hstreampb.LookupSubscriptionRequest))
 	case LookupSubscriptionWithOrderingKey:
 		resp.Resp, err = cli.LookupSubscriptionWithOrderingKey(ctx, req.Req.(*hstreampb.LookupSubscriptionWithOrderingKeyRequest))
-	//case WatchSubscription:
-	//	resp.Resp, err = cli.WatchSubscription(ctx, req.Req.(*hstreampb.WatchSubscriptionRequest))
-	//case StreamingFetch:
-	//	resp.Resp, err = cli.StreamingFetch(ctx, req.Req.(*hstreampb.StreamingFetchRequest))
+	case WatchSubscription:
+		resp.Resp, err = cli.WatchSubscription(ctx, req.Req.(*hstreampb.WatchSubscriptionRequest))
+	case StreamingFetch:
+		resp.Resp, err = cli.StreamingFetch(ctx)
 	case DescribeCluster:
 		resp.Resp, err = cli.DescribeCluster(ctx, req.Req.(*emptypb.Empty))
 	}
@@ -143,4 +143,24 @@ func NewRPCAppendRes() *RPCAppendRes {
 		ready: make(chan struct{}, 1),
 	}
 	return r
+}
+
+type RPCFetchRes struct {
+	result []*hstreampb.ReceivedRecord
+	err    error
+}
+
+func (r *RPCFetchRes) SetError(err error) {
+	r.err = err
+}
+
+func (r *RPCFetchRes) GetResult() ([]*hstreampb.ReceivedRecord, error) {
+	if r.err != nil {
+		return nil, r.err
+	}
+	return r.result, nil
+}
+
+func (r *RPCFetchRes) SetResult(res interface{}) {
+	r.result = res.([]*hstreampb.ReceivedRecord)
 }
