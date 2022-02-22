@@ -2,6 +2,7 @@ package integraion_test
 
 import (
 	"client/client"
+	hstreampb "client/gen-proto/hstream/server"
 	"client/hstream"
 	"client/util/test_util"
 	"context"
@@ -9,6 +10,7 @@ import (
 	"math/rand"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestSubscription(t *testing.T) {
@@ -97,4 +99,56 @@ func (s *testSubscriptionSuite) TestListSubscription() {
 		subId := iter.Item().GetSubscriptionId()
 		s.Contains(subs, subId)
 	}
+}
+
+func (s *testSubscriptionSuite) TestFetch() {
+	ctx := context.Background()
+	rand.Seed(time.Now().UnixNano())
+	streamName := "test_stream_" + strconv.Itoa(rand.Int())
+	err := s.stream.Create(ctx, streamName, 1)
+	defer func() {
+		_ = s.stream.Delete(ctx, streamName)
+	}()
+	s.NoError(err)
+	subId := "test_subscription_" + strconv.Itoa(rand.Int())
+	err = s.sub.Create(ctx, subId, streamName, 5)
+	defer func() {
+		_ = s.sub.Delete(ctx, subId)
+	}()
+	s.NoError(err)
+
+	producer := s.stream.MakeProducer(streamName, "key-10", hstream.EnableBatch(2))
+
+	res := make([]client.AppendResult, 0, 10)
+	for i := 0; i < 10; i++ {
+		r := producer.Append(client.RAWRECORD, []byte("test-value"+strconv.Itoa(i)))
+		res = append(res, r)
+	}
+
+	rids := make([]*hstreampb.RecordId, 0, 10)
+	for _, r := range res {
+		resp, err := r.Ready()
+		s.NoError(err)
+		rids = append(rids, resp)
+	}
+	producer.Stop()
+
+	consumer, err := s.sub.MakeConsumer(subId, "consumer-1")
+	s.NoError(err)
+
+	handler := test_util.MakeGatherRidsHandler(len(rids))
+	consumer.Fetch(context.Background(), handler)
+
+	time.Sleep(15 * time.Second)
+	consumer.Stop()
+	s.T().Log("Rids: ")
+	for _, rid := range rids {
+		s.T().Log(rid.String())
+	}
+
+	s.T().Log("Response: ")
+	for _, res := range handler.GetRes() {
+		s.T().Log(res.String())
+	}
+	//s.ElementsMatch(rids, handler.GetRes())
 }

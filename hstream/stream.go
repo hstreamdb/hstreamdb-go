@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"math/rand"
 	"strconv"
 	"time"
 )
@@ -40,7 +39,7 @@ func (s *Stream) Create(ctx context.Context, streamName string, replicationFacto
 		StreamName:        streamName,
 		ReplicationFactor: replicationFactor,
 	}
-	address, err := randomServer(s.client)
+	address, err := util.RandomServer(s.client)
 	if err != nil {
 		return err
 	}
@@ -57,7 +56,7 @@ func (s *Stream) Create(ctx context.Context, streamName string, replicationFacto
 }
 
 func (s *Stream) Delete(ctx context.Context, streamName string) error {
-	address, err := randomServer(s.client)
+	address, err := util.RandomServer(s.client)
 	if err != nil {
 		return err
 	}
@@ -76,7 +75,7 @@ func (s *Stream) Delete(ctx context.Context, streamName string) error {
 }
 
 func (s *Stream) List(ctx context.Context) (*client.StreamIter, error) {
-	address, err := randomServer(s.client)
+	address, err := util.RandomServer(s.client)
 	if err != nil {
 		return nil, err
 	}
@@ -94,10 +93,6 @@ func (s *Stream) List(ctx context.Context) (*client.StreamIter, error) {
 	return client.NewStreamIter(streams), nil
 }
 
-func (s *Stream) Append(ctx context.Context, streamName string, key string, tp client.RecordType, data []byte) (client.AppendResult, error) {
-	panic("not implemented")
-}
-
 func (s *Stream) MakeProducer(streamName string, key string, opts ...client.ProducerOpt) client.StreamProducer {
 	pId := streamName + ":" + key
 	if producer, ok := s.writers[pId]; ok {
@@ -112,15 +107,6 @@ func (s *Stream) MakeProducer(streamName string, key string, opts ...client.Prod
 	s.writers[pId] = producer
 	util.Logger().Info("new producer", zap.String("streamName", streamName), zap.String("key", key))
 	return producer
-}
-
-func randomServer(client client.Client) (string, error) {
-	infos, err := client.GetServerInfo()
-	idx := rand.Intn(len(infos))
-	if err != nil {
-		return "", err
-	}
-	return infos[idx], nil
 }
 
 type StreamProducer struct {
@@ -299,7 +285,7 @@ func (p *StreamProducer) sendAppend(records []*appendEntry) {
 }
 
 func (p *StreamProducer) lookUp(ctx context.Context, streamName string, key string) (string, error) {
-	address, err := randomServer(p.client)
+	address, err := util.RandomServer(p.client)
 	if err != nil {
 		return "", err
 	}

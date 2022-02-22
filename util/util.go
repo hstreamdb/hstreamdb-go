@@ -1,6 +1,8 @@
 package util
 
 import (
+	"client/client"
+	"github.com/pkg/errors"
 	"math/rand"
 	"strings"
 	"time"
@@ -31,4 +33,13 @@ func RandomString(n int) string {
 	}
 
 	return sb.String()
+}
+
+func RandomServer(client client.Client) (string, error) {
+	infos, err := client.GetServerInfo()
+	if err != nil {
+		return "", errors.WithStack(err)
+	}
+	idx := rand.Intn(len(infos))
+	return infos[idx], nil
 }

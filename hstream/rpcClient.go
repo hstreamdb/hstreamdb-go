@@ -49,9 +49,7 @@ func (c *HStreamClient) SendRequest(ctx context.Context, address string, req *hs
 	}
 
 	cli := hstreampb.NewHStreamApiClient(conn)
-	ctx1, cancel := context.WithTimeout(ctx, client.REQUESTTIMEOUT)
-	defer cancel()
-	return hstreamrpc.Call(ctx1, cli, req)
+	return hstreamrpc.Call(ctx, cli, req)
 }
 
 func (c *HStreamClient) Close() error {
@@ -117,8 +115,8 @@ func (c *HStreamClient) createConnection(address string) (*grpc.ClientConn, erro
 
 func (c *HStreamClient) connect(address string) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
+	defer cancel()
 	conn, err := grpc.DialContext(ctx, address, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	cancel()
 	return conn, err
 }
 
@@ -151,7 +149,8 @@ func (c *HStreamClient) initConnection() error {
 	}
 	c.Unlock()
 
-	ctx, cancel := context.WithTimeout(context.TODO(), client.REQUESTTIMEOUT)
+	ctx, cancel := context.WithTimeout(context.Background(), client.REQUESTTIMEOUT)
+	defer cancel()
 	res, err := c.SendRequest(ctx, address, &hstreamrpc.Request{Type: hstreamrpc.DescribeCluster, Req: &emptypb.Empty{}})
 	if err != nil {
 		cancel()
@@ -164,7 +163,6 @@ func (c *HStreamClient) initConnection() error {
 		info := fmt.Sprintf("%s:%d", node.GetHost(), node.GetPort())
 		set[info] = struct{}{}
 	}
-	cancel()
 	c.Lock()
 	c.serverInfo = set
 	c.Unlock()
