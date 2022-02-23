@@ -7,3 +7,8 @@ gen:
 clean:
 	rm -rf gen-proto
 
+fmt:
+	gofmt -s -w -l `find . -name '*.go' -type f ! -path '*/gen-proto/*' -print`
+
+.PHONY: clean test gen
+
