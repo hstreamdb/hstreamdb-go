@@ -5,7 +5,7 @@ import (
 	hstreampb "client/gen-proto/hstream/server"
 )
 
-var ServerUrl = "localhost:6570"
+var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"
 
 type GatherRidsHandler struct {
 	res []*hstreampb.RecordId

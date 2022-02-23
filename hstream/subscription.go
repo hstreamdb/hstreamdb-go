@@ -360,7 +360,8 @@ func lookup(ctx context.Context, client client.Client, subId string, key string)
 			Type: hstreamrpc.LookupSubscriptionWithOrderingKey,
 			Req: &hstreampb.LookupSubscriptionWithOrderingKeyRequest{
 				SubscriptionId: subId,
-				OrderingKey:    key,
+				// FIXME:
+				//OrderingKey:    key,
 			},
 		}
 	} else {

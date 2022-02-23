@@ -139,7 +139,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 	handler := test_util.MakeGatherRidsHandler(len(rids))
 	consumer.Fetch(context.Background(), handler)
 
-	time.Sleep(15 * time.Second)
+	time.Sleep(10 * time.Second)
 	consumer.Stop()
 	s.T().Log("Rids: ")
 	for _, rid := range rids {
