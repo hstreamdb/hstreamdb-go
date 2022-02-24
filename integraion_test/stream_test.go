@@ -26,8 +26,10 @@ type testStreamSuite struct {
 }
 
 func (s *testStreamSuite) SetupTest() {
+	var err error
 	s.serverUrl = test_util.ServerUrl
-	s.client = hstream.NewHStreamClient(s.serverUrl)
+	s.client, err = hstream.NewHStreamClient(s.serverUrl)
+	s.NoError(err)
 	s.stream = hstream.NewStream(s.client)
 }
 

@@ -4,6 +4,7 @@ import (
 	"client/client"
 	hstreampb "client/gen-proto/hstream/server"
 	"client/hstream"
+	"client/util"
 	"client/util/test_util"
 	"context"
 	"github.com/stretchr/testify/suite"
@@ -26,8 +27,10 @@ type testSubscriptionSuite struct {
 }
 
 func (s *testSubscriptionSuite) SetupTest() {
+	var err error
 	s.serverUrl = test_util.ServerUrl
-	s.client = hstream.NewHStreamClient(s.serverUrl)
+	s.client, err = hstream.NewHStreamClient(s.serverUrl)
+	s.NoError(err)
 	s.stream = hstream.NewStream(s.client)
 	s.sub = hstream.NewSubscription(s.client)
 }
@@ -40,6 +43,7 @@ func (s *testSubscriptionSuite) TearDownTest() {
 
 func (s *testSubscriptionSuite) TestCreateSubscription() {
 	ctx := context.Background()
+	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
 	err := s.stream.Create(ctx, streamName, 1)
 	defer func() {
@@ -57,6 +61,7 @@ func (s *testSubscriptionSuite) TestCreateSubscription() {
 
 func (s *testSubscriptionSuite) TestDeleteSubscription() {
 	ctx := context.Background()
+	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
 	err := s.stream.Create(ctx, streamName, 1)
 	defer func() {
@@ -73,6 +78,7 @@ func (s *testSubscriptionSuite) TestDeleteSubscription() {
 
 func (s *testSubscriptionSuite) TestListSubscription() {
 	ctx := context.Background()
+	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
 	err := s.stream.Create(ctx, streamName, 1)
 	defer func() {
@@ -138,17 +144,10 @@ func (s *testSubscriptionSuite) TestFetch() {
 
 	handler := test_util.MakeGatherRidsHandler(len(rids))
 	consumer.Fetch(context.Background(), handler)
-
-	time.Sleep(10 * time.Second)
+	<-handler.Done
 	consumer.Stop()
-	s.T().Log("Rids: ")
-	for _, rid := range rids {
-		s.T().Log(rid.String())
-	}
 
-	s.T().Log("Response: ")
-	for _, res := range handler.GetRes() {
-		s.T().Log(res.String())
-	}
-	//s.ElementsMatch(rids, handler.GetRes())
+	c1 := util.RecordIdComparator{RecordIdList: rids}
+	c2 := util.RecordIdComparator{RecordIdList: handler.GetRes()}
+	s.True(util.RecordIdComparatorCompare(c1, c2))
 }
