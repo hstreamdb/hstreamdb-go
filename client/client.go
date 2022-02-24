@@ -14,7 +14,7 @@ const DEFAULTKEY = "__default__"
 type Client interface {
 	GetServerInfo() ([]string, error)
 	SendRequest(ctx context.Context, address string, req *hstreamrpc.Request) (*hstreamrpc.Response, error)
-	Close() error
+	Close()
 }
 
 type Iter interface {

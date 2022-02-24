@@ -8,13 +8,17 @@ import (
 var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"
 
 type GatherRidsHandler struct {
-	res []*hstreampb.RecordId
-	Err error
+	res     []*hstreampb.RecordId
+	maxSize int
+	Err     error
+	Done    chan struct{}
 }
 
 func MakeGatherRidsHandler(size int) *GatherRidsHandler {
 	return &GatherRidsHandler{
-		res: make([]*hstreampb.RecordId, 0, size),
+		maxSize: size,
+		res:     make([]*hstreampb.RecordId, 0, size),
+		Done:    make(chan struct{}),
 	}
 }
 
@@ -27,7 +31,11 @@ func (h *GatherRidsHandler) HandleRes(res client.FetchResult) {
 
 	for _, record := range records {
 		h.res = append(h.res, record.GetRecordId())
+		if len(h.res) >= h.maxSize {
+			break
+		}
 	}
+	h.Done <- struct{}{}
 }
 
 func (h *GatherRidsHandler) GetRes() []*hstreampb.RecordId {
