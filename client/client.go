@@ -2,8 +2,8 @@ package client
 
 import (
 	"context"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/gen-proto/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/hstreamrpc"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstream/server"
 	"time"
 )
 
