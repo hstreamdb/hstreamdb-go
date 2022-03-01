@@ -1,12 +1,12 @@
 package integraion_test
 
 import (
-	"client/client"
-	hstreampb "client/gen-proto/hstream/server"
-	"client/hstream"
-	"client/util"
-	"client/util/test_util"
 	"context"
+	"github.com/hstreamdb/hstreamdb-go/client"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/gen-proto/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/hstream"
+	"github.com/hstreamdb/hstreamdb-go/util"
+	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/suite"
 	"math/rand"
 	"strconv"

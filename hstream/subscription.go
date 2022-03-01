@@ -1,12 +1,12 @@
 package hstream
 
 import (
-	"client/client"
-	hstreampb "client/gen-proto/hstream/server"
-	"client/hstreamrpc"
-	"client/util"
 	"context"
 	"fmt"
+	"github.com/hstreamdb/hstreamdb-go/client"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/gen-proto/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/hstreamrpc"
+	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"io"
