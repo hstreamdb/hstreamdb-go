@@ -1,11 +1,11 @@
 package test_util
 
 import (
-	"client/client"
-	hstreampb "client/gen-proto/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/client"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/gen-proto/hstream/server"
 )
 
-var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"
+var ServerUrl = "localhost:6581,localhost:6581,localhost:6582"
 
 type GatherRidsHandler struct {
 	res     []*hstreampb.RecordId

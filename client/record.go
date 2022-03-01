@@ -1,7 +1,7 @@
 package client
 
 import (
-	"client/gen-proto/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/gen-proto/hstream/server"
 	"github.com/pkg/errors"
 	"time"
 )
