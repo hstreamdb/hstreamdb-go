@@ -3,7 +3,7 @@ package util
 import (
 	"bytes"
 	"github.com/hstreamdb/hstreamdb-go/client"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstream/server"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 	"github.com/pkg/errors"
 	"math/rand"
 	"sort"

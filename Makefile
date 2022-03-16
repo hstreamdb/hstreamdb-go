@@ -11,5 +11,5 @@ clean:
 fmt:
 	gofmt -s -w -l `find . -name '*.go' -type f ! -path '*/gen-proto/*' -print`
 
-.PHONY: clean test gen
+.PHONY: clean fmt gen
 

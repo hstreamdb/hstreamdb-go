@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"github.com/hstreamdb/hstreamdb-go/hstreamrpc"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstream/server"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 	"time"
 )
 

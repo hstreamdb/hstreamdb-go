@@ -2,7 +2,7 @@ package hstream
 
 import (
 	"context"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstream/server"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"

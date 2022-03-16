@@ -4,7 +4,7 @@ import (
 	"context"
 	"github.com/hstreamdb/hstreamdb-go/client"
 	"github.com/hstreamdb/hstreamdb-go/hstream"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstream/server"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/suite"
