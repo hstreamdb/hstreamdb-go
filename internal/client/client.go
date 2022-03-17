@@ -38,18 +38,18 @@ type FetchResult interface {
 	SetError(err error)
 }
 
-type StreamProducer interface {
-	Append(tp RecordType, data []byte) AppendResult
+type Producer interface {
+	Append(tp RecordType, key string, data []byte) AppendResult
 	Stop()
 }
 
-type ProducerOpt func(producer StreamProducer)
+type ProducerOpt func(producer Producer)
 
 type Stream interface {
 	Create(ctx context.Context, streamName string, replicationFactor uint32) error
 	Delete(ctx context.Context, streamName string) error
 	List(ctx context.Context) (*StreamIter, error)
-	MakeProducer(streamName string, key string, opts ...ProducerOpt) StreamProducer
+	MakeProducer(streamName string, key string, opts ...ProducerOpt) Producer
 }
 
 type FetchResHandler interface {

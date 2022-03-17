@@ -1,7 +1,7 @@
 package test_util
 
 import (
-	"github.com/hstreamdb/hstreamdb-go/client"
+	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 )
 
