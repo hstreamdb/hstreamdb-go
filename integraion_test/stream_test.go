@@ -21,7 +21,6 @@ type testStreamSuite struct {
 	suite.Suite
 	serverUrl string
 	client    *hstream.HStreamClient
-	stream    *hstream.Stream
 }
 
 func (s *testStreamSuite) SetupTest() {

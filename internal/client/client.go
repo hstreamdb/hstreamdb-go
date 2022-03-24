@@ -45,28 +45,9 @@ type Producer interface {
 
 type ProducerOpt func(producer Producer)
 
-type Stream interface {
-	Create(ctx context.Context, streamName string, replicationFactor uint32) error
-	Delete(ctx context.Context, streamName string) error
-	List(ctx context.Context) (*StreamIter, error)
-	MakeProducer(streamName string, key string, opts ...ProducerOpt) Producer
-}
-
-type FetchResHandler interface {
-	HandleRes(result FetchResult)
-}
-
-type StreamConsumer interface {
-	Fetch(ctx context.Context, handler FetchResHandler)
+type Consumer interface {
+	StartFetch() (chan FetchResult, chan []*hstreampb.RecordId)
 	Stop()
-}
-
-type Subscription interface {
-	Create(ctx context.Context, subId string, streamName string, ackTimeout int32) error
-	Delete(ctx context.Context, subId string) error
-	List(ctx context.Context) (*SubIter, error)
-	CheckExist(ctx context.Context, subId string) (bool, error)
-	MakeConsumer(subId string, consumerName string) StreamConsumer
 }
 
 type baseIter struct {
