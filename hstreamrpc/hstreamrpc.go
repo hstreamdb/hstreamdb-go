@@ -2,7 +2,7 @@ package hstreamrpc
 
 import (
 	"context"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstream/server"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 

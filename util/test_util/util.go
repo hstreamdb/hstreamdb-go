@@ -1,8 +1,8 @@
 package test_util
 
 import (
-	"github.com/hstreamdb/hstreamdb-go/client"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/internal/client"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 )
 
 var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"

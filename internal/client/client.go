@@ -3,7 +3,7 @@ package client
 import (
 	"context"
 	"github.com/hstreamdb/hstreamdb-go/hstreamrpc"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstream/server"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 	"time"
 )
 
@@ -38,35 +38,16 @@ type FetchResult interface {
 	SetError(err error)
 }
 
-type StreamProducer interface {
-	Append(tp RecordType, data []byte) AppendResult
+type Producer interface {
+	Append(tp RecordType, key string, data []byte) AppendResult
 	Stop()
 }
 
-type ProducerOpt func(producer StreamProducer)
+type ProducerOpt func(producer Producer)
 
-type Stream interface {
-	Create(ctx context.Context, streamName string, replicationFactor uint32) error
-	Delete(ctx context.Context, streamName string) error
-	List(ctx context.Context) (*StreamIter, error)
-	MakeProducer(streamName string, key string, opts ...ProducerOpt) StreamProducer
-}
-
-type FetchResHandler interface {
-	HandleRes(result FetchResult)
-}
-
-type StreamConsumer interface {
-	Fetch(ctx context.Context, handler FetchResHandler)
+type Consumer interface {
+	StartFetch() (chan FetchResult, chan []*hstreampb.RecordId)
 	Stop()
-}
-
-type Subscription interface {
-	Create(ctx context.Context, subId string, streamName string, ackTimeout int32) error
-	Delete(ctx context.Context, subId string) error
-	List(ctx context.Context) (*SubIter, error)
-	CheckExist(ctx context.Context, subId string) (bool, error)
-	MakeConsumer(subId string, consumerName string) StreamConsumer
 }
 
 type baseIter struct {

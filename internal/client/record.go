@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 	"github.com/pkg/errors"
 	"time"
 )
@@ -34,7 +34,7 @@ type RecordHeader struct {
 type HStreamRecord interface {
 	GetHeader() RecordHeader
 	GetPayLoad() []byte
-	ToHStreamRecord() *server.HStreamRecord
+	ToPbRecord() *server.HStreamRecord
 }
 
 type RawRecord struct {
@@ -60,7 +60,7 @@ func (r *RawRecord) GetPayLoad() []byte {
 	return r.payLoad
 }
 
-func (r *RawRecord) ToHStreamRecord() *server.HStreamRecord {
+func (r *RawRecord) ToPbRecord() *server.HStreamRecord {
 	return &server.HStreamRecord{
 		Header: &server.HStreamRecordHeader{
 			Flag:       server.HStreamRecordHeader_RAW,
@@ -105,7 +105,7 @@ func (h *HRecord) GetPayLoad() []byte {
 	return h.payLoad
 }
 
-func (h *HRecord) ToHStreamRecord() *server.HStreamRecord {
+func (h *HRecord) ToPbRecord() *server.HStreamRecord {
 	return &server.HStreamRecord{
 		Header: &server.HStreamRecordHeader{
 			Flag:       server.HStreamRecordHeader_JSON,

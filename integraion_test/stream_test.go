@@ -1,10 +1,9 @@
 package integraion_test
 
 import (
-	"context"
 	"fmt"
-	"github.com/hstreamdb/hstreamdb-go/client"
 	"github.com/hstreamdb/hstreamdb-go/hstream"
+	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/suite"
 	"math/rand"
@@ -21,8 +20,7 @@ func TestStream(t *testing.T) {
 type testStreamSuite struct {
 	suite.Suite
 	serverUrl string
-	client    client.Client
-	stream    *hstream.Stream
+	client    *hstream.HStreamClient
 }
 
 func (s *testStreamSuite) SetupTest() {
@@ -30,7 +28,6 @@ func (s *testStreamSuite) SetupTest() {
 	s.serverUrl = test_util.ServerUrl
 	s.client, err = hstream.NewHStreamClient(s.serverUrl)
 	s.NoError(err)
-	s.stream = hstream.NewStream(s.client)
 }
 
 func (s *testStreamSuite) TearDownTest() {
@@ -40,45 +37,42 @@ func (s *testStreamSuite) TearDownTest() {
 }
 
 func (s *testStreamSuite) TestCreateStream() {
-	ctx := context.Background()
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.stream.Create(ctx, streamName, 1)
+	err := s.client.CreateStream(streamName, 1, 1)
 	defer func() {
-		_ = s.stream.Delete(ctx, streamName)
+		_ = s.client.DeleteStream(streamName)
 	}()
 	s.NoError(err)
-	err = s.stream.Create(ctx, streamName, 1)
+	err = s.client.CreateStream(streamName, 1, 1)
 	s.Error(err)
 }
 
 func (s *testStreamSuite) TestDeleteStream() {
-	ctx := context.Background()
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.stream.Create(ctx, streamName, 1)
+	err := s.client.CreateStream(streamName, 1, 1)
 	s.NoError(err)
-	err = s.stream.Delete(ctx, streamName)
+	err = s.client.DeleteStream(streamName)
 	s.NoError(err)
 }
 
 func (s *testStreamSuite) TestListStreams() {
-	ctx := context.Background()
 	rand.Seed(time.Now().UnixNano())
 	streams := make([]string, 0, 5)
 	for i := 0; i < 5; i++ {
 		streamName := "test_stream_" + strconv.Itoa(rand.Int())
-		err := s.stream.Create(ctx, streamName, 1)
+		err := s.client.CreateStream(streamName, 1, 1)
 		s.NoError(err)
 		streams = append(streams, streamName)
 	}
 	defer func() {
 		for _, streamName := range streams {
-			_ = s.stream.Delete(ctx, streamName)
+			_ = s.client.DeleteStream(streamName)
 		}
 	}()
 
-	iter, err := s.stream.List(ctx)
+	iter, err := s.client.ListStreams()
 	s.NoError(err)
 	for ; iter.Valid(); iter.Next() {
 		streamName := iter.Item().GetStreamName()
@@ -87,19 +81,18 @@ func (s *testStreamSuite) TestListStreams() {
 }
 
 func (s *testStreamSuite) TestAppend() {
-	ctx := context.Background()
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.stream.Create(ctx, streamName, 1)
+	err := s.client.CreateStream(streamName, 1, 1)
 	defer func() {
-		_ = s.stream.Delete(ctx, streamName)
+		_ = s.client.DeleteStream(streamName)
 	}()
 	s.NoError(err)
 
-	producer := s.stream.MakeProducer(streamName, "test-key")
+	producer := s.client.NewProducer(streamName)
 	res := make([]client.AppendResult, 0, 100)
 	for i := 0; i < 100; i++ {
-		r := producer.Append(client.RAWRECORD, []byte("test-value"))
+		r := producer.Append(client.RAWRECORD, "key-1", []byte("test-value"))
 		res = append(res, r)
 	}
 
@@ -111,21 +104,21 @@ func (s *testStreamSuite) TestAppend() {
 }
 
 func (s *testStreamSuite) TestBatchAppend() {
-	ctx := context.Background()
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.stream.Create(ctx, streamName, 1)
+	err := s.client.CreateStream(streamName, 1, 1)
 	defer func() {
-		_ = s.stream.Delete(ctx, streamName)
+		_ = s.client.DeleteStream(streamName)
 	}()
 	s.NoError(err)
 
-	producer := s.stream.MakeProducer(streamName, "test-key", hstream.EnableBatch(10))
+	producer, err := s.client.NewBatchProducer(streamName, hstream.EnableBatch(10))
+	s.NoError(err)
 	defer producer.Stop()
 
 	res := make([]client.AppendResult, 0, 100)
 	for i := 0; i < 100; i++ {
-		r := producer.Append(client.RAWRECORD, []byte("test-value"+strconv.Itoa(i)))
+		r := producer.Append(client.RAWRECORD, "test-key", []byte("test-value"+strconv.Itoa(i)))
 		res = append(res, r)
 	}
 
@@ -137,46 +130,41 @@ func (s *testStreamSuite) TestBatchAppend() {
 }
 
 func (s *testStreamSuite) TestBatchAppendMultiKey() {
-	ctx := context.Background()
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.stream.Create(ctx, streamName, 1)
+	err := s.client.CreateStream(streamName, 1, 1)
 	defer func() {
-		_ = s.stream.Delete(ctx, streamName)
+		_ = s.client.DeleteStream(streamName)
 	}()
 	s.NoError(err)
 
-	producer1 := s.stream.MakeProducer(streamName, "test-key1", hstream.EnableBatch(10))
-	defer producer1.Stop()
-	producer2 := s.stream.MakeProducer(streamName, "test-key2", hstream.EnableBatch(10))
-	defer producer2.Stop()
-	producer3 := s.stream.MakeProducer(streamName, "test-key3", hstream.EnableBatch(10))
-	defer producer3.Stop()
+	producer, err := s.client.NewBatchProducer(streamName, hstream.EnableBatch(10))
+	s.NoError(err)
 
-	producers := []client.StreamProducer{producer1, producer2, producer3}
+	keys := []string{"test-key1", "test-key2", "test-key3"}
 	rids := sync.Map{}
 	wg := sync.WaitGroup{}
 	wg.Add(3)
-	for pid, p := range producers {
-		go func(pid int, p client.StreamProducer) {
+	for _, key := range keys {
+		go func(key string) {
 			result := make([]client.AppendResult, 0, 100)
 			for i := 0; i < 100; i++ {
-				r := p.Append(client.RAWRECORD, []byte(fmt.Sprintf("test-value-%d-%d", pid, i)))
+				r := producer.Append(client.RAWRECORD, key, []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
 				result = append(result, r)
 			}
-			rids.Store(pid, result)
+			rids.Store(key, result)
 			wg.Done()
-		}(pid, p)
+		}(key)
 	}
 
 	wg.Wait()
 	rids.Range(func(key, value interface{}) bool {
-		pid := key.(int)
+		k := key.(string)
 		res := value.([]client.AppendResult)
 		for idx, r := range res {
 			resp, err := r.Ready()
 			s.NoError(err)
-			s.T().Log(fmt.Sprintf("[producer%d]: record[%d]=%s", pid, idx, resp.String()))
+			s.T().Log(fmt.Sprintf("[key: %s]: record[%d]=%s", k, idx, resp.String()))
 		}
 		return true
 	})
