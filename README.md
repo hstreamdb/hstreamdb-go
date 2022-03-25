@@ -7,13 +7,11 @@ Go Client for HStreamDB
 
 **Go 1.17** or later is required.
 
-1. Add the client package your to your project dependencies (go.mod).
+Add the package to your project dependencies (go.mod).
 
-   ```
-   go get github.com/hstreamdb/hstreamdb-go/hstream
-   ```
-
-2. Add import `github.com/hstreamdb/hstreamdb-go/hstream` to your source code.
+```shell
+go get github.com/hstreamdb/hstreamdb-go
+```
 
 ## Example Usage
 ### Connect to HServer
