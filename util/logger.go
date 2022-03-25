@@ -1,9 +1,10 @@
 package util
 
 import (
+	"sync/atomic"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"sync/atomic"
 )
 
 var globalLogger atomic.Value

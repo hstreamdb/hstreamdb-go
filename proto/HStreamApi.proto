@@ -6,7 +6,7 @@ import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/empty.proto";
 
-option go_package = "hstreamDB/hstream/server";
+option go_package = "hstreamdb/hstream/server";
 
 service HStreamApi {
   // ---------------------------------------------------------------------------

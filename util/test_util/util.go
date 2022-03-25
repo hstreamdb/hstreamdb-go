@@ -1,8 +1,10 @@
 package test_util
 
 import (
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
+	"sort"
+
+	"github.com/hstreamdb/hstreamdb-go/hstream"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 )
 
 var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"
@@ -22,7 +24,7 @@ func MakeGatherRidsHandler(size int) *GatherRidsHandler {
 	}
 }
 
-func (h *GatherRidsHandler) HandleRes(res client.FetchResult) {
+func (h *GatherRidsHandler) HandleRes(res hstream.FetchResult) {
 	records, err := res.GetResult()
 	if err != nil {
 		h.Err = err
@@ -40,4 +42,42 @@ func (h *GatherRidsHandler) HandleRes(res client.FetchResult) {
 
 func (h *GatherRidsHandler) GetRes() []*hstreampb.RecordId {
 	return h.res
+}
+
+type RecordIdList []*hstream.RecordId
+
+func (r RecordIdList) Len() int {
+	return len(r)
+}
+
+func (r RecordIdList) Swap(i, j int) {
+	r[i], r[j] = r[j], r[i]
+}
+
+type RecordIdComparator struct {
+	RecordIdList
+}
+
+func (r RecordIdComparator) Less(i, j int) bool {
+	return hstream.CompareRecordId(r.RecordIdList[i], r.RecordIdList[j]) < 0
+}
+
+func (r *RecordIdComparator) Sort() {
+	sort.Sort(r)
+}
+
+// RecordIdComparatorCompare check if two RecordId list is equal
+func RecordIdComparatorCompare(a, b RecordIdComparator) bool {
+	sizeA := a.Len()
+	sizeB := b.Len()
+	if sizeA != sizeB {
+		return false
+	}
+
+	for i := 0; i < sizeA; i++ {
+		if hstream.CompareRecordId(a.RecordIdList[i], b.RecordIdList[i]) != 0 {
+			return false
+		}
+	}
+	return true
 }

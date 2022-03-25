@@ -5,7 +5,7 @@ package hstream.server;
 import "google/protobuf/empty.proto";
 import "HStreamApi.proto";
 
-option go_package = "hstreamDB/hstream/server";
+option go_package = "hstreamdb/hstream/server";
 
 service HStreamInternal {
   rpc CreateQueryStream(CreateQueryStreamRequest) returns (CreateQueryStreamResponse) {}

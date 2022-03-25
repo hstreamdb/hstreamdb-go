@@ -2,9 +2,14 @@ package hstream
 
 import (
 	"context"
-	"github.com/hstreamdb/hstreamdb-go/hstreamrpc"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+
 	"github.com/hstreamdb/hstreamdb-go/internal/client"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -12,10 +17,6 @@ import (
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"strconv"
-	"strings"
-	"sync"
-	"sync/atomic"
 )
 
 type ServerList []string
@@ -54,7 +55,9 @@ func (c *HStreamClient) SendRequest(ctx context.Context, address string, req *hs
 }
 
 func (c *HStreamClient) Close() {
+	util.Logger().Info("closing hstream client")
 	for address, conn := range c.connections {
+		util.Logger().Info("closing connection to server", zap.String("address", address))
 		if err := conn.Close(); err != nil {
 			util.Logger().Error("close connection failed", zap.String("address", address), zap.Error(err))
 		}
