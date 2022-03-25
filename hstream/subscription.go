@@ -3,13 +3,14 @@ package hstream
 import (
 	"context"
 	"fmt"
-	"github.com/hstreamdb/hstreamdb-go/hstreamrpc"
+	"sync"
+
 	"github.com/hstreamdb/hstreamdb-go/internal/client"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"sync"
 )
 
 type Subscription struct {

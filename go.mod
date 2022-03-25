@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
+	go.uber.org/goleak v1.1.11
 	go.uber.org/zap v1.21.0
 	google.golang.org/grpc v1.44.0
 	google.golang.org/protobuf v1.27.1

@@ -2,15 +2,15 @@ package integraion_test
 
 import (
 	"fmt"
-	"github.com/hstreamdb/hstreamdb-go/hstream"
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
-	"github.com/hstreamdb/hstreamdb-go/util/test_util"
-	"github.com/stretchr/testify/suite"
 	"math/rand"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/hstreamdb/hstreamdb-go/hstream"
+	"github.com/hstreamdb/hstreamdb-go/util/test_util"
+	"github.com/stretchr/testify/suite"
 )
 
 func TestStream(t *testing.T) {
@@ -31,9 +31,7 @@ func (s *testStreamSuite) SetupTest() {
 }
 
 func (s *testStreamSuite) TearDownTest() {
-	//if err := s.client.Close(); err != nil {
-	//	s.T().Error(err)
-	//}
+	s.client.Close()
 }
 
 func (s *testStreamSuite) TestCreateStream() {
@@ -90,9 +88,10 @@ func (s *testStreamSuite) TestAppend() {
 	s.NoError(err)
 
 	producer := s.client.NewProducer(streamName)
-	res := make([]client.AppendResult, 0, 100)
+	res := make([]hstream.AppendResult, 0, 100)
+	rawRecord := hstream.NewHStreamRawRecord("key-1", []byte("value-1"))
 	for i := 0; i < 100; i++ {
-		r := producer.Append(client.RAWRECORD, "key-1", []byte("test-value"))
+		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
 
@@ -116,9 +115,10 @@ func (s *testStreamSuite) TestBatchAppend() {
 	s.NoError(err)
 	defer producer.Stop()
 
-	res := make([]client.AppendResult, 0, 100)
+	res := make([]hstream.AppendResult, 0, 100)
 	for i := 0; i < 100; i++ {
-		r := producer.Append(client.RAWRECORD, "test-key", []byte("test-value"+strconv.Itoa(i)))
+		rawRecord := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
+		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
 
@@ -139,6 +139,7 @@ func (s *testStreamSuite) TestBatchAppendMultiKey() {
 	s.NoError(err)
 
 	producer, err := s.client.NewBatchProducer(streamName, hstream.EnableBatch(10))
+	defer producer.Stop()
 	s.NoError(err)
 
 	keys := []string{"test-key1", "test-key2", "test-key3"}
@@ -147,9 +148,10 @@ func (s *testStreamSuite) TestBatchAppendMultiKey() {
 	wg.Add(3)
 	for _, key := range keys {
 		go func(key string) {
-			result := make([]client.AppendResult, 0, 100)
+			result := make([]hstream.AppendResult, 0, 100)
 			for i := 0; i < 100; i++ {
-				r := producer.Append(client.RAWRECORD, key, []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
+				rawRecord := hstream.NewHStreamRawRecord("key-1", []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
+				r := producer.Append(rawRecord)
 				result = append(result, r)
 			}
 			rids.Store(key, result)
@@ -160,7 +162,7 @@ func (s *testStreamSuite) TestBatchAppendMultiKey() {
 	wg.Wait()
 	rids.Range(func(key, value interface{}) bool {
 		k := key.(string)
-		res := value.([]client.AppendResult)
+		res := value.([]hstream.AppendResult)
 		for idx, r := range res {
 			resp, err := r.Ready()
 			s.NoError(err)

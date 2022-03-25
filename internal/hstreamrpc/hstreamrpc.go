@@ -2,7 +2,8 @@ package hstreamrpc
 
 import (
 	"context"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
+
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -104,63 +105,4 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 		resp.Resp, err = cli.DescribeCluster(ctx, req.Req.(*emptypb.Empty))
 	}
 	return resp, err
-}
-
-type RPCAppendRes struct {
-	ready chan struct{}
-	resp  *hstreampb.RecordId
-	Err   error
-}
-
-func (r *RPCAppendRes) String() string {
-	if r.Err != nil {
-		return r.Err.Error()
-	}
-	return r.resp.String()
-}
-
-func (r *RPCAppendRes) Ready() (*hstreampb.RecordId, error) {
-	if r.Err != nil {
-		return nil, r.Err
-	}
-
-	<-r.ready
-	return r.resp, nil
-}
-
-func (r *RPCAppendRes) SetError(err error) {
-	r.Err = err
-	r.ready <- struct{}{}
-}
-
-func (r *RPCAppendRes) SetResponse(res interface{}) {
-	r.resp = res.(*hstreampb.RecordId)
-	r.ready <- struct{}{}
-}
-
-func NewRPCAppendRes() *RPCAppendRes {
-	r := &RPCAppendRes{
-		ready: make(chan struct{}, 1),
-	}
-	return r
-}
-
-type RPCFetchRes struct {
-	result []*hstreampb.ReceivedRecord
-	err    error
-}
-
-func (r *RPCFetchRes) SetError(err error) {
-	r.err = err
-}
-
-func (r *RPCFetchRes) GetResult() ([]*hstreampb.ReceivedRecord, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-	return r.result, nil
-}
-
-func (r *RPCFetchRes) SetResult(res interface{}) {
-	r.result = res.([]*hstreampb.ReceivedRecord)
 }

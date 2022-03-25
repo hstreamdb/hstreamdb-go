@@ -2,9 +2,10 @@ package client
 
 import (
 	"context"
-	"github.com/hstreamdb/hstreamdb-go/hstreamrpc"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
 	"time"
+
+	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 )
 
 const DIALTIMEOUT = 5 * time.Second
@@ -25,29 +26,6 @@ type Iter interface {
 	Next()
 	// Close the iterator
 	Close()
-}
-
-type AppendResult interface {
-	Ready() (*hstreampb.RecordId, error)
-	SetError(err error)
-	SetResponse(res interface{})
-}
-
-type FetchResult interface {
-	GetResult() ([]*hstreampb.ReceivedRecord, error)
-	SetError(err error)
-}
-
-type Producer interface {
-	Append(tp RecordType, key string, data []byte) AppendResult
-	Stop()
-}
-
-type ProducerOpt func(producer Producer)
-
-type Consumer interface {
-	StartFetch() (chan FetchResult, chan []*hstreampb.RecordId)
-	Stop()
 }
 
 type baseIter struct {

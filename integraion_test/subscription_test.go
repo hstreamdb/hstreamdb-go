@@ -1,16 +1,14 @@
 package integraion_test
 
 import (
-	"github.com/hstreamdb/hstreamdb-go/hstream"
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
-	"github.com/hstreamdb/hstreamdb-go/util"
-	"github.com/hstreamdb/hstreamdb-go/util/test_util"
-	"github.com/stretchr/testify/suite"
 	"math/rand"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/hstreamdb/hstreamdb-go/hstream"
+	"github.com/hstreamdb/hstreamdb-go/util/test_util"
+	"github.com/stretchr/testify/suite"
 )
 
 func TestSubscription(t *testing.T) {
@@ -31,9 +29,7 @@ func (s *testSubscriptionSuite) SetupTest() {
 }
 
 func (s *testSubscriptionSuite) TearDownTest() {
-	//if err := s.client.Close(); err != nil {
-	//	s.T().Error(err)
-	//}
+	s.client.Close()
 }
 
 func (s *testSubscriptionSuite) TestCreateSubscription() {
@@ -117,13 +113,14 @@ func (s *testSubscriptionSuite) TestFetch() {
 	producer, err := s.client.NewBatchProducer(streamName, hstream.EnableBatch(2))
 	s.NoError(err)
 
-	res := make([]client.AppendResult, 0, 10)
+	res := make([]hstream.AppendResult, 0, 10)
 	for i := 0; i < 10; i++ {
-		r := producer.Append(client.RAWRECORD, "key-10", []byte("test-value"+strconv.Itoa(i)))
+		rawRecord := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
+		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
 
-	rids := make([]*hstreampb.RecordId, 0, 10)
+	rids := make([]*hstream.RecordId, 0, 10)
 	for _, r := range res {
 		resp, err := r.Ready()
 		s.NoError(err)
@@ -132,26 +129,24 @@ func (s *testSubscriptionSuite) TestFetch() {
 	producer.Stop()
 
 	consumer := s.client.NewConsumer("consumer-1", subId)
+	defer consumer.Stop()
 
-	dataCh, ackCh := consumer.StartFetch()
-	fetchRes := make([]*hstreampb.RecordId, 0, 10)
+	dataCh := consumer.StartFetch()
+	fetchRes := make([]*hstream.RecordId, 0, 10)
 	for res := range dataCh {
 		receivedRecords, err := res.GetResult()
 		s.NoError(err)
-		ackIds := make([]*hstreampb.RecordId, 0, len(receivedRecords))
 		for _, record := range receivedRecords {
 			rid := record.GetRecordId()
-			fetchRes = append(fetchRes, rid)
-			ackIds = append(ackIds, rid)
+			fetchRes = append(fetchRes, hstream.FromPbRecordId(rid))
 		}
-		ackCh <- ackIds
+		res.Ack()
 		if len(fetchRes) == 10 {
-			consumer.Stop()
 			break
 		}
 	}
 
-	c1 := util.RecordIdComparator{RecordIdList: rids}
-	c2 := util.RecordIdComparator{RecordIdList: fetchRes}
-	s.True(util.RecordIdComparatorCompare(c1, c2))
+	c1 := test_util.RecordIdComparator{RecordIdList: rids}
+	c2 := test_util.RecordIdComparator{RecordIdList: fetchRes}
+	s.True(test_util.RecordIdComparatorCompare(c1, c2))
 }

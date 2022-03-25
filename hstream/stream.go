@@ -3,26 +3,15 @@ package hstream
 import (
 	"context"
 	"fmt"
-	"github.com/hstreamdb/hstreamdb-go/hstreamrpc"
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamDB/hstream/server"
-	"github.com/hstreamdb/hstreamdb-go/util"
 	"time"
+
+	"github.com/hstreamdb/hstreamdb-go/internal/client"
+	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 const DEFAULTAPPENDTIMEOUT = time.Second * 5
-
-type appendEntry struct {
-	key        string
-	value      client.HStreamRecord
-	streamName string
-	res        *hstreamrpc.RPCAppendRes
-}
-
-//type Stream struct {
-//	writers map[string]*StreamProducer // FIXME: use Sync.Map to ensure thread safe ???
-//	client  client2.Client
-//}
 
 type Stream struct {
 	StreamName        string
