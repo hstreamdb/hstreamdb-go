@@ -1,9 +1,19 @@
 # hstreamdb-go
 Go Client for HStreamDB
 
-**Note that the current release is not suitable for production use - APIs are not yet stable and the crate has not been thoroughly tested in real-life use.**
+**Note that the current release is not suitable for production use - APIs are not yet stable and the package has not been thoroughly tested in real-life use.**
 
-## Install
+## Content
+
+- [Installation](#installation)
+- [Example Usage](#example-usage)
+  - [Connect to HServer](#connect-to-hserver)
+  - [Work with Streams](#work-with-streams)
+  - [Write to Stream](#write-to-stream)
+  - [Work with Subscriptions](#work-with-subscriptions)
+  - [Consume from Subscription](#consume-from-subscription)
+
+## Installation
 
 **Go 1.17** or later is required.
 
@@ -28,9 +38,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Creating client error: %s", err)
 	}
-    
-    // do sth.
-    client.Close()
+	// do sth.
+	client.Close()
 }
 ```
 
@@ -43,9 +52,9 @@ import (
 )
 
 func main() {
-    // -------------- connect to server first --------------------
+	// -------------- connect to server first --------------------
 	// Create a new stream
-    if err := client.CreateStream("testStream", 1, 100); err != nil {
+	if err := client.CreateStream("testStream", 1, 100); err != nil {
 		log.Fatalf("Creating stream error: %s", err)
 	}
 
@@ -63,7 +72,7 @@ func main() {
 
 ### Write to Stream
 
-- Write RawRecord
+#### Write RawRecord
 
 ```go
 import (
@@ -73,9 +82,9 @@ import (
 )
 
 func main() {
-    //------------- connect to server and create related stream first --------------------
+	//------------- connect to server and create related stream first --------------------
 	producer := client.NewProducer("testStream")
-    defer producer.Stop()
+	defer producer.Stop()
     
 	res := make([]hstream.AppendResult, 0, 100)
 	for i := 0; i < 100; i++ {
@@ -95,7 +104,7 @@ func main() {
 }
 ```
 
-- Write HRecord
+#### Write HRecord
 
 ```go
 import (
@@ -105,9 +114,9 @@ import (
 )
 
 func main() {
-    //------------- connect to server and create related stream first --------------------
+	//------------- connect to server and create related stream first --------------------
 	producer := client.NewProducer("testStream")
-    defer producer.Stop()
+	defer producer.Stop()
     
 	payload := map[string]interface{}{
 		"key1": "value1",
@@ -131,7 +140,7 @@ func main() {
 }
 ```
 
-- Batch Writter
+#### Batch Writter
 
 ```go
 import (
@@ -142,9 +151,9 @@ import (
 )
 
 func main() {
-    //------------- connect to server and create related stream first --------------------
+	//------------- connect to server and create related stream first --------------------
 	producer, err := client.NewBatchProducer("testStream", hstream.EnableBatch(10))
-    defer producer.Stop()
+	defer producer.Stop()
 
 	keys := []string{"test-key1", "test-key2", "test-key3"}
 	rids := sync.Map{}
@@ -188,14 +197,13 @@ import (
 )
 
 func main() {
-    // -------------- connect to server and create related stream first --------------------
-
+	// -------------- connect to server and create related stream first --------------------
 	// Create a new subscription
 	streamName := "testStream"
 	subId := "SubscriptionId"
 	err = client.CreateSubscription(subId, streamName, 5)
 
-    // List all subscriptions
+	// List all subscriptions
 	iter, err := client.ListSubscriptions()
 	if err != nil {
 		log.Fatalf("Listing subscriptions error: %s", err)
@@ -216,7 +224,7 @@ import (
 )
 
 func main() {
-    // ------- connect to server and create related stream and subscription first -------
+	// ------- connect to server and create related stream and subscription first -------
 	streamName := "testStream"
 	subId := "SubscriptionId"
 	consumer := client.NewConsumer("consumer-1", subId)
