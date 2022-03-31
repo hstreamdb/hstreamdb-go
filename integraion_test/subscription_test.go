@@ -35,7 +35,7 @@ func (s *testSubscriptionSuite) TearDownTest() {
 func (s *testSubscriptionSuite) TestCreateSubscription() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName, 1, 100)
+	err := s.client.CreateStream(streamName)
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()
@@ -52,7 +52,7 @@ func (s *testSubscriptionSuite) TestCreateSubscription() {
 func (s *testSubscriptionSuite) TestDeleteSubscription() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName, 1, 100)
+	err := s.client.CreateStream(streamName)
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()
@@ -68,7 +68,7 @@ func (s *testSubscriptionSuite) TestDeleteSubscription() {
 func (s *testSubscriptionSuite) TestListSubscription() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName, 1, 100)
+	err := s.client.CreateStream(streamName)
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()
@@ -98,7 +98,7 @@ func (s *testSubscriptionSuite) TestListSubscription() {
 func (s *testSubscriptionSuite) TestFetch() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName, 1, 1000)
+	err := s.client.CreateStream(streamName)
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()

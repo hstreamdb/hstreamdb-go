@@ -15,24 +15,52 @@ const DEFAULTAPPENDTIMEOUT = time.Second * 5
 
 type Stream struct {
 	StreamName        string
-	ReplicationFactor int16
-	BacklogDuration   uint32
+	ReplicationFactor uint32
+	// backlog duration == 0 means forbidden backlog
+	BacklogDuration uint32
 }
 
-func NewStream(name string, replicationFactor int16, backlogDuration uint32) *Stream {
+func (s *Stream) ToPbHStreamStream() *hstreampb.Stream {
+	return &hstreampb.Stream{
+		StreamName:        s.StreamName,
+		ReplicationFactor: s.ReplicationFactor,
+		BacklogDuration:   s.BacklogDuration,
+	}
+}
+
+type StreamOpts func(stream *Stream)
+
+func WithReplicationFactor(replicationFactor uint32) StreamOpts {
+	return func(stream *Stream) {
+		stream.ReplicationFactor = replicationFactor
+	}
+}
+
+func EnableBacklog(backlogDuration uint32) StreamOpts {
+	return func(stream *Stream) {
+		stream.BacklogDuration = backlogDuration
+	}
+}
+
+// defaultStream create a default stream with 3 replicas,
+// the backlog duration is set to 0, which means forbidden backlog
+func defaultStream(name string) *Stream {
 	return &Stream{
 		StreamName:        name,
-		ReplicationFactor: replicationFactor,
-		BacklogDuration:   backlogDuration,
+		ReplicationFactor: 3,
+		BacklogDuration:   0,
 	}
 }
 
-func (c *HStreamClient) CreateStream(streamName string, replicationFactor uint32, backlogDuration uint32) error {
-	stream := &hstreampb.Stream{
-		StreamName:        streamName,
-		ReplicationFactor: replicationFactor,
-		BacklogDuration:   backlogDuration,
+func (c *HStreamClient) CreateStream(streamName string, opts ...StreamOpts) error {
+	stream := defaultStream(streamName)
+	for _, opt := range opts {
+		opt(stream)
 	}
+	if stream.ReplicationFactor < 1 {
+		return fmt.Errorf("replication factor must be greater than 0")
+	}
+
 	address, err := util.RandomServer(c)
 	if err != nil {
 		return err
@@ -40,7 +68,7 @@ func (c *HStreamClient) CreateStream(streamName string, replicationFactor uint32
 
 	req := &hstreamrpc.Request{
 		Type: hstreamrpc.CreateStream,
-		Req:  stream,
+		Req:  stream.ToPbHStreamStream(),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)

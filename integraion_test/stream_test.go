@@ -37,19 +37,19 @@ func (s *testStreamSuite) TearDownTest() {
 func (s *testStreamSuite) TestCreateStream() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName, 1, 1)
+	err := s.client.CreateStream(streamName)
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()
 	s.NoError(err)
-	err = s.client.CreateStream(streamName, 1, 1)
+	err = s.client.CreateStream(streamName)
 	s.Error(err)
 }
 
 func (s *testStreamSuite) TestDeleteStream() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName, 1, 1)
+	err := s.client.CreateStream(streamName)
 	s.NoError(err)
 	err = s.client.DeleteStream(streamName)
 	s.NoError(err)
@@ -60,7 +60,7 @@ func (s *testStreamSuite) TestListStreams() {
 	streams := make([]string, 0, 5)
 	for i := 0; i < 5; i++ {
 		streamName := "test_stream_" + strconv.Itoa(rand.Int())
-		err := s.client.CreateStream(streamName, 1, 1)
+		err := s.client.CreateStream(streamName)
 		s.NoError(err)
 		streams = append(streams, streamName)
 	}
@@ -81,7 +81,7 @@ func (s *testStreamSuite) TestListStreams() {
 func (s *testStreamSuite) TestAppend() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName, 1, 1)
+	err := s.client.CreateStream(streamName)
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()
@@ -105,7 +105,7 @@ func (s *testStreamSuite) TestAppend() {
 func (s *testStreamSuite) TestBatchAppend() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName, 1, 1)
+	err := s.client.CreateStream(streamName)
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()
@@ -132,7 +132,7 @@ func (s *testStreamSuite) TestBatchAppend() {
 func (s *testStreamSuite) TestBatchAppendMultiKey() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName, 1, 1)
+	err := s.client.CreateStream(streamName)
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()
