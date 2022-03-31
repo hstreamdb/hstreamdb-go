@@ -10,41 +10,41 @@ import (
 	"go.uber.org/zap"
 )
 
+// FetchResult is a handler to process the results of streamingFetch.
 type FetchResult interface {
+	// GetResult will return when the fetch result is ready,
+	// or an error if the fetch fails.
 	GetResult() ([]*hstreampb.ReceivedRecord, error)
-	SetError(err error)
+	// Ack will send an acknowledgement to the server so that
+	// server won't resend the acked record.
 	Ack()
 }
 
-type rfcFetchRes struct {
+type rpcFetchRes struct {
 	result     []*hstreampb.ReceivedRecord
-	err        error
+	Err        error
 	ackChannel chan []*hstreampb.RecordId
 }
 
-func newRfcFetchRes(result []*hstreampb.ReceivedRecord, ackChannel chan []*hstreampb.RecordId) *rfcFetchRes {
-	return &rfcFetchRes{
+func newRpcFetchRes(result []*hstreampb.ReceivedRecord, ackChannel chan []*hstreampb.RecordId) *rpcFetchRes {
+	return &rpcFetchRes{
 		result:     result,
 		ackChannel: ackChannel,
 	}
 }
 
-func (r *rfcFetchRes) SetError(err error) {
-	r.err = err
-}
-
-func (r *rfcFetchRes) GetResult() ([]*hstreampb.ReceivedRecord, error) {
-	if r.err != nil {
-		return nil, r.err
+func (r *rpcFetchRes) GetResult() ([]*hstreampb.ReceivedRecord, error) {
+	if r.Err != nil {
+		return nil, r.Err
 	}
 	return r.result, nil
 }
 
-func (r *rfcFetchRes) SetResult(res interface{}) {
+func (r *rpcFetchRes) SetResult(res interface{}) {
 	r.result = res.([]*hstreampb.ReceivedRecord)
 }
 
-func (r *rfcFetchRes) Ack() {
+func (r *rpcFetchRes) Ack() {
 	ackIds := make([]*hstreampb.RecordId, len(r.result))
 	for i, record := range r.result {
 		ackIds[i] = record.GetRecordId()
@@ -52,6 +52,7 @@ func (r *rfcFetchRes) Ack() {
 	r.ackChannel <- ackIds
 }
 
+// Consumer will consume records from specific subscription.
 type Consumer struct {
 	client       *HStreamClient
 	subId        string
@@ -71,11 +72,14 @@ func NewConsumer(client *HStreamClient, subId string, consumerName string) *Cons
 	}
 }
 
+// Stop will stop the consumer.
 func (c *Consumer) Stop() {
 	c.streamingCancel()
 	close(c.ackChannel)
 }
 
+// StartFetch consumes data from the specified subscription. This method is an asynchronous method
+// that allows the user to retrieve the return value from the data channel when consumption is complete.
 func (c *Consumer) StartFetch() chan FetchResult {
 	address, err := c.client.lookUpSubscription(c.subId)
 	c.dataChannel = make(chan FetchResult, 100)
@@ -144,12 +148,12 @@ func (c *Consumer) fetch(cancelCtx context.Context, stream hstreampb.HStreamApi_
 			res := make([]*hstreampb.ReceivedRecord, recordSize)
 			copy(res, records.GetReceivedRecords())
 			util.Logger().Debug("receive records from stream", zap.String("subId", c.subId), zap.Int("count", len(records.GetReceivedRecords())))
-			result := newRfcFetchRes(res, c.ackChannel)
+			result := newRpcFetchRes(res, c.ackChannel)
 			if err != nil && err == io.EOF {
 				util.Logger().Info("streamingFetch serve stream EOF", zap.String("subId", c.subId))
 				return
 			} else if err != nil {
-				result.SetError(err)
+				result.Err = err
 			} else {
 				result.SetResult(records.GetReceivedRecords())
 			}
@@ -159,9 +163,10 @@ func (c *Consumer) fetch(cancelCtx context.Context, stream hstreampb.HStreamApi_
 	}()
 }
 
+// handleFetchError is a helper function to set an error result.
 func (c *Consumer) handleFetchError(err error) chan FetchResult {
-	errRes := &rfcFetchRes{}
-	errRes.SetError(err)
+	errRes := &rpcFetchRes{}
+	errRes.Err = err
 	c.dataChannel <- errRes
 	close(c.dataChannel)
 	return c.dataChannel

@@ -26,6 +26,7 @@ func NewSubscription(client client.Client) *Subscription {
 	}
 }
 
+// CreateSubscription will send a CreateSubscriptionRPC to the server and wait for response.
 func (c *HStreamClient) CreateSubscription(subId string, streamName string, ackTimeout int32) error {
 	sub := &hstreampb.Subscription{
 		SubscriptionId:    subId,
@@ -50,6 +51,7 @@ func (c *HStreamClient) CreateSubscription(subId string, streamName string, ackT
 	return nil
 }
 
+// DeleteSubscription will send a DeleteSubscriptionRPC to the server and wait for response.
 func (c *HStreamClient) DeleteSubscription(subId string) error {
 	address, err := util.RandomServer(c)
 	if err != nil {
@@ -71,6 +73,7 @@ func (c *HStreamClient) DeleteSubscription(subId string) error {
 	return nil
 }
 
+// ListSubscriptions will send a ListSubscriptionsRPC to the server and wait for response.
 func (c *HStreamClient) ListSubscriptions() (*client.SubIter, error) {
 	address, err := util.RandomServer(c)
 	if err != nil {
@@ -92,6 +95,7 @@ func (c *HStreamClient) ListSubscriptions() (*client.SubIter, error) {
 	return client.NewSubIter(subs), nil
 }
 
+// CheckExist will send a CheckExistRPC to the server and wait for response.
 func (c *HStreamClient) CheckExist(subId string) (bool, error) {
 	address, err := util.RandomServer(c)
 	if err != nil {
@@ -115,6 +119,7 @@ func (c *HStreamClient) CheckExist(subId string) (bool, error) {
 	return isExist, nil
 }
 
+// NewConsumer will create a new Consumer for the specific subscription.
 func (c *HStreamClient) NewConsumer(consumerName, subId string) *Consumer {
 	return NewConsumer(c, subId, consumerName)
 }

@@ -11,7 +11,9 @@ import (
 type RecordType uint16
 
 const (
+	// RAWRECORD is the type for byte payload
 	RAWRECORD RecordType = iota + 1
+	// HRECORD is the type for json payload
 	HRECORD
 )
 
@@ -26,6 +28,7 @@ func (r RecordType) String() string {
 	}
 }
 
+// RecordId is the unique identifier for a record
 type RecordId struct {
 	BatchId    uint64
 	BatchIndex uint32
@@ -114,6 +117,7 @@ type HStreamRecord interface {
 	ToPbHStreamRecord() (*hstreampb.HStreamRecord, error)
 }
 
+// HStreamRawRecord is the concrete type for byte payload
 type HStreamRawRecord struct {
 	Key     string
 	Payload []byte
@@ -145,6 +149,7 @@ func (h *HStreamRawRecord) ToPbHStreamRecord() (*hstreampb.HStreamRecord, error)
 	}, nil
 }
 
+// HStreamHRecord is the concrete type for json payload
 type HStreamHRecord struct {
 	Key     string
 	Payload map[string]interface{}

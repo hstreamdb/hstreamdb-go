@@ -24,10 +24,11 @@ type appendEntry struct {
 	res        *rpcAppendRes
 }
 
+// AppendResult is a handler to process the results of append operation.
 type AppendResult interface {
+	// Ready will return when the append request return,
+	// or an error if append fails.
 	Ready() (*RecordId, error)
-	SetError(err error)
-	SetResponse(res interface{})
 }
 
 // rpcAppendRes FIXME:
@@ -62,18 +63,23 @@ func (r *rpcAppendRes) Ready() (*RecordId, error) {
 	return r.resp, nil
 }
 
-func (r *rpcAppendRes) SetError(err error) {
+// setError is a helper function to set the error result of append request.
+// Always use this method because the data channel is properly handled in the method
+func (r *rpcAppendRes) setError(err error) {
 	defer close(r.ready)
 	r.Err = err
 	r.ready <- struct{}{}
 }
 
-func (r *rpcAppendRes) SetResponse(res interface{}) {
+// setResponse is a helper function to set the result of append request.
+// Always use this method because the data channel is properly handled in the method
+func (r *rpcAppendRes) setResponse(res interface{}) {
 	defer close(r.ready)
 	r.resp = FromPbRecordId(res.(*hstreampb.RecordId))
 	r.ready <- struct{}{}
 }
 
+// Producer produce a single piece of data to the specified stream.
 type Producer struct {
 	client     *HStreamClient
 	streamName string
@@ -86,6 +92,7 @@ func newProducer(client *HStreamClient, streamName string) *Producer {
 	}
 }
 
+// Append will write a single record to the specified stream. This is a synchronous method.
 func (p *Producer) Append(record HStreamRecord) AppendResult {
 	key := record.GetRecordKey()
 	entry := buildAppendEntry(p.streamName, key, record)
@@ -101,8 +108,10 @@ func (p *Producer) Stop() {
 
 }
 
+// ProducerOpt is the option for the BatchProducer.
 type ProducerOpt func(producer *BatchProducer)
 
+// BatchProducer is a producer that can batch write multiple records to the specified stream.
 type BatchProducer struct {
 	client      *HStreamClient
 	streamName  string
@@ -130,6 +139,11 @@ func newBatchProducer(client *HStreamClient, streamName string, opts ...Producer
 	for _, opt := range opts {
 		opt(batchProducer)
 	}
+
+	if batchProducer.batchSize <= 0 {
+		return nil, errors.New("batch size must be greater than 0")
+	}
+
 	if batchProducer.batchSize <= 0 {
 		util.Logger().Error("batch size must be greater than 0")
 		return nil, errors.New("batch size must be greater than 0")
@@ -137,20 +151,16 @@ func newBatchProducer(client *HStreamClient, streamName string, opts ...Producer
 	return batchProducer, nil
 }
 
-// EnableBatch enable batch append, batchSize must greater than 0
+// EnableBatch set the batchSize-trigger for BatchProducer, batchSize must greater than 0
 func EnableBatch(batchSize int) ProducerOpt {
 	return func(batchProducer *BatchProducer) {
-		if batchSize <= 0 {
-			util.Logger().Error("batch size must be greater than 0")
-			return
-		}
 		p := batchProducer
 		p.enableBatch = true
 		p.batchSize = batchSize
 	}
 }
 
-// TimeOut set millisecond time-trigger for batch producer to flush data to server.
+// TimeOut set millisecond time-trigger for BatchProducer to flush data to server.
 // If timeOut <= 0, which means never trigger by time out.
 func TimeOut(timeOut int) ProducerOpt {
 	return func(batchProducer *BatchProducer) {
@@ -164,6 +174,7 @@ func TimeOut(timeOut int) ProducerOpt {
 	}
 }
 
+// Stop will stop the BatchProducer.
 func (p *BatchProducer) Stop() {
 	util.Logger().Info("Stop BatchProducer", zap.String("streamName", p.streamName))
 	p.isClosed = true
@@ -173,6 +184,9 @@ func (p *BatchProducer) Stop() {
 	}
 }
 
+// Append will write batch records to the specified stream. This is an asynchronous method.
+// The backend goroutines are responsible for collecting the batch records and sending the
+// data to the server when the trigger conditions are met.
 func (p *BatchProducer) Append(record HStreamRecord) AppendResult {
 	key := record.GetRecordKey()
 	entry := buildAppendEntry(p.streamName, key, record)
@@ -180,6 +194,7 @@ func (p *BatchProducer) Append(record HStreamRecord) AppendResult {
 		return entry.res
 	}
 
+	// records are collected by key.
 	appenderId := record.GetRecordType().String() + "-" + key
 	if appender, ok := p.appends[appenderId]; ok {
 		appender.dataCh <- entry
@@ -309,7 +324,7 @@ func sendAppend(hsClient *HStreamClient, targetStream, targetKey string, records
 	size := len(records)
 	rids := res.Resp.(*hstreampb.AppendResponse).GetRecordIds()
 	for i := 0; i < size; i++ {
-		records[i].res.SetResponse(rids[i])
+		records[i].res.setResponse(rids[i])
 	}
 }
 
@@ -337,6 +352,6 @@ func buildAppendEntry(streamName, key string, record HStreamRecord) *appendEntry
 
 func handleBatchAppendError(err error, records []*appendEntry) {
 	for _, record := range records {
-		record.res.SetError(err)
+		record.res.setError(err)
 	}
 }
