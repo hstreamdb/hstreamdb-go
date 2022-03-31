@@ -53,8 +53,11 @@ import (
 
 func main() {
 	// -------------- connect to server first --------------------
-	// Create a new stream
-	if err := client.CreateStream("testStream", 1, 100); err != nil {
+	// Create a new stream with 1 replica, set the data retention to 1800s.
+	err := client.CreateStream("testStream", 
+             hstream.WithReplicationFactor(1), 
+             hstream.EnableBacklog(1800))
+	if err != nil {
 		log.Fatalf("Creating stream error: %s", err)
 	}
 
