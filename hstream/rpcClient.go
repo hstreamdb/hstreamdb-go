@@ -19,17 +19,18 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type ServerList []string
+type serverList []string
 
-func (s ServerList) String() string {
+func (s serverList) String() string {
 	listStr := strings.Join(s, ",")
 	return "[" + listStr + "]"
 }
 
+// HStreamClient is the client for the HStreamDB service.
 type HStreamClient struct {
 	sync.RWMutex
 	connections map[string]*grpc.ClientConn
-	serverInfo  ServerList
+	serverInfo  serverList
 	// closed == 0 means client is closed
 	closed int32
 }
@@ -156,7 +157,7 @@ func (c *HStreamClient) connect(address string) (*grpc.ClientConn, error) {
 }
 
 // requestServerInfo sends a describeCluster RPC to the specific server and returns information about all servers in current cluster.
-func (c *HStreamClient) requestServerInfo(address string) (ServerList, error) {
+func (c *HStreamClient) requestServerInfo(address string) (serverList, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), client.REQUESTTIMEOUT)
 	defer cancel()
 	res, err := c.SendRequest(ctx, address, &hstreamrpc.Request{Type: hstreamrpc.DescribeCluster, Req: &emptypb.Empty{}})
@@ -165,7 +166,7 @@ func (c *HStreamClient) requestServerInfo(address string) (ServerList, error) {
 	}
 
 	serverNodes := res.Resp.(*hstreampb.DescribeClusterResponse).GetServerNodes()
-	newInfo := make(ServerList, 0, len(serverNodes))
+	newInfo := make(serverList, 0, len(serverNodes))
 	for _, node := range serverNodes {
 		info := strings.Join([]string{node.GetHost(), strconv.Itoa(int(node.GetPort()))}, ":")
 		newInfo = append(newInfo, info)

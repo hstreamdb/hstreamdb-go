@@ -91,7 +91,10 @@ func main() {
     
 	res := make([]hstream.AppendResult, 0, 100)
 	for i := 0; i < 100; i++ {
-		rawRecord := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
+		rawRecord, err := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
+		if err != nil {
+			log.Fatalf("Creating rawRecord error: %s", err)
+		}
 		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
@@ -133,7 +136,10 @@ func main() {
 		},
 	}
 
-	hRecord := hstream.NewHStreamHRecord("testStream", payload)
+	hRecord, err := hstream.NewHStreamHRecord("testStream", payload)
+	if err != nil {
+		log.Fatalf("Creating hRecord error: %s", err)
+	}
 	value := producer.Append(hRecord)
 	if resp, err := value.Ready(); err != nil {
 		log.Printf("Append error: %s", err)
@@ -166,7 +172,7 @@ func main() {
 		go func(key string) {
 			result := make([]hstream.AppendResult, 0, 100)
 			for i := 0; i < 100; i++ {
-				rawRecord := hstream.NewHStreamRawRecord("key-1", []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
+				rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
 				r := producer.Append(rawRecord)
 				result = append(result, r)
 			}
@@ -234,7 +240,7 @@ func main() {
 	defer consumer.Stop()
 
 	dataCh := consumer.StartFetch()
-	fetchRes := make([]*hstream.RecordId, 0, 100)
+	fetchRes := make([]hstream.RecordId, 0, 100)
 	for res := range dataCh {
 		receivedRecords, err := res.GetResult()
 		if err != nil {
@@ -243,7 +249,7 @@ func main() {
 		}
 
 		for _, record := range receivedRecords {
-			rid := hstream.FromPbRecordId(record.GetRecordId())
+			rid := record.GetRecordId()
 			log.Printf("receive recordId: %s\n", rid.String())
 			fetchRes = append(fetchRes, rid)
 		}

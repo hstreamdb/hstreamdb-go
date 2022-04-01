@@ -28,14 +28,17 @@ func (s *Stream) ToPbHStreamStream() *hstreampb.Stream {
 	}
 }
 
+// StreamOpts is the option for the Stream.
 type StreamOpts func(stream *Stream)
 
+// WithReplicationFactor sets the replication factor of the stream.
 func WithReplicationFactor(replicationFactor uint32) StreamOpts {
 	return func(stream *Stream) {
 		stream.ReplicationFactor = replicationFactor
 	}
 }
 
+// EnableBacklog sets the backlog duration of the stream.
 func EnableBacklog(backlogDuration uint32) StreamOpts {
 	return func(stream *Stream) {
 		stream.BacklogDuration = backlogDuration
@@ -52,6 +55,7 @@ func defaultStream(name string) *Stream {
 	}
 }
 
+// CreateStream will send a CreateStreamRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) CreateStream(streamName string, opts ...StreamOpts) error {
 	stream := defaultStream(streamName)
 	for _, opt := range opts {
@@ -79,6 +83,7 @@ func (c *HStreamClient) CreateStream(streamName string, opts ...StreamOpts) erro
 	return nil
 }
 
+// DeleteStream will send a DeleteStreamRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) DeleteStream(streamName string) error {
 	address, err := util.RandomServer(c)
 	if err != nil {
@@ -100,6 +105,7 @@ func (c *HStreamClient) DeleteStream(streamName string) error {
 	return nil
 }
 
+// ListStreams will send a ListStreamsRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) ListStreams() (*client.StreamIter, error) {
 	address, err := util.RandomServer(c)
 	if err != nil {
@@ -121,14 +127,17 @@ func (c *HStreamClient) ListStreams() (*client.StreamIter, error) {
 	return client.NewStreamIter(streams), nil
 }
 
+// NewProducer will create a Producer for specific stream
 func (c *HStreamClient) NewProducer(streamName string) *Producer {
 	return newProducer(c, streamName)
 }
 
+// NewBatchProducer will create a BatchProducer for specific stream
 func (c *HStreamClient) NewBatchProducer(streamName string, opts ...ProducerOpt) (*BatchProducer, error) {
 	return newBatchProducer(c, streamName, opts...)
 }
 
+// LookUpStream will send a LookUpStreamRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) LookUpStream(streamName string, key string) (string, error) {
 	address, err := util.RandomServer(c)
 	if err != nil {

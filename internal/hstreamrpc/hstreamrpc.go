@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+// ReqType represents the concrete rpc request type in Request.
 type ReqType uint16
 
 const (
@@ -62,15 +63,18 @@ func (t ReqType) String() string {
 	return "Unknown"
 }
 
+// Request is a wrapper for all rpc requests.
 type Request struct {
 	Type ReqType
 	Req  interface{}
 }
 
+// Response is a wrapper for all rpc responses.
 type Response struct {
 	Resp interface{}
 }
 
+// Call send rpc to server and wait for response.
 func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*Response, error) {
 	var err error
 	resp := &Response{}

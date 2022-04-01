@@ -89,7 +89,7 @@ func (s *testStreamSuite) TestAppend() {
 
 	producer := s.client.NewProducer(streamName)
 	res := make([]hstream.AppendResult, 0, 100)
-	rawRecord := hstream.NewHStreamRawRecord("key-1", []byte("value-1"))
+	rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("value-1"))
 	for i := 0; i < 100; i++ {
 		r := producer.Append(rawRecord)
 		res = append(res, r)
@@ -117,7 +117,7 @@ func (s *testStreamSuite) TestBatchAppend() {
 
 	res := make([]hstream.AppendResult, 0, 100)
 	for i := 0; i < 100; i++ {
-		rawRecord := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
+		rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
 		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
@@ -150,7 +150,7 @@ func (s *testStreamSuite) TestBatchAppendMultiKey() {
 		go func(key string) {
 			result := make([]hstream.AppendResult, 0, 100)
 			for i := 0; i < 100; i++ {
-				rawRecord := hstream.NewHStreamRawRecord("key-1", []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
+				rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
 				r := producer.Append(rawRecord)
 				result = append(result, r)
 			}

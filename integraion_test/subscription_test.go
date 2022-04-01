@@ -115,12 +115,12 @@ func (s *testSubscriptionSuite) TestFetch() {
 
 	res := make([]hstream.AppendResult, 0, 10)
 	for i := 0; i < 10; i++ {
-		rawRecord := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
+		rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
 		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
 
-	rids := make([]*hstream.RecordId, 0, 10)
+	rids := make([]hstream.RecordId, 0, 10)
 	for _, r := range res {
 		resp, err := r.Ready()
 		s.NoError(err)
@@ -132,13 +132,13 @@ func (s *testSubscriptionSuite) TestFetch() {
 	defer consumer.Stop()
 
 	dataCh := consumer.StartFetch()
-	fetchRes := make([]*hstream.RecordId, 0, 10)
+	fetchRes := make([]hstream.RecordId, 0, 10)
 	for res := range dataCh {
 		receivedRecords, err := res.GetResult()
 		s.NoError(err)
 		for _, record := range receivedRecords {
 			rid := record.GetRecordId()
-			fetchRes = append(fetchRes, hstream.FromPbRecordId(rid))
+			fetchRes = append(fetchRes, rid)
 		}
 		res.Ack()
 		if len(fetchRes) == 10 {

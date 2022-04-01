@@ -12,9 +12,14 @@ const DIALTIMEOUT = 5 * time.Second
 const REQUESTTIMEOUT = 5 * time.Second
 const DEFAULTKEY = "__default__"
 
+// Client is a client that sends RPC to HStreamDB server.
+// It should not be used after calling Close().
 type Client interface {
+	// GetServerInfo returns the basic server infos of the cluster.
 	GetServerInfo() ([]string, error)
+	// SendRequest sends a rpc request to the server.
 	SendRequest(ctx context.Context, address string, req *hstreamrpc.Request) (*hstreamrpc.Response, error)
+	// Close closes the client.
 	Close()
 }
 

@@ -4,13 +4,12 @@ import (
 	"sort"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream"
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 )
 
 var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"
 
 type GatherRidsHandler struct {
-	res     []*hstreampb.RecordId
+	res     []hstream.RecordId
 	maxSize int
 	Err     error
 	Done    chan struct{}
@@ -19,7 +18,7 @@ type GatherRidsHandler struct {
 func MakeGatherRidsHandler(size int) *GatherRidsHandler {
 	return &GatherRidsHandler{
 		maxSize: size,
-		res:     make([]*hstreampb.RecordId, 0, size),
+		res:     make([]hstream.RecordId, 0, size),
 		Done:    make(chan struct{}),
 	}
 }
@@ -40,11 +39,11 @@ func (h *GatherRidsHandler) HandleRes(res hstream.FetchResult) {
 	h.Done <- struct{}{}
 }
 
-func (h *GatherRidsHandler) GetRes() []*hstreampb.RecordId {
+func (h *GatherRidsHandler) GetRes() []hstream.RecordId {
 	return h.res
 }
 
-type RecordIdList []*hstream.RecordId
+type RecordIdList []hstream.RecordId
 
 func (r RecordIdList) Len() int {
 	return len(r)
