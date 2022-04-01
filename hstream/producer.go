@@ -28,7 +28,7 @@ type appendEntry struct {
 type AppendResult interface {
 	// Ready will return when the append request return,
 	// or an error if append fails.
-	Ready() (*RecordId, error)
+	Ready() (RecordId, error)
 }
 
 // rpcAppendRes FIXME:
@@ -38,7 +38,7 @@ type AppendResult interface {
 //    - if somebody call SetResponse and SetError, the channel will panic.
 type rpcAppendRes struct {
 	ready chan struct{}
-	resp  *RecordId
+	resp  RecordId
 	Err   error
 }
 
@@ -55,9 +55,9 @@ func (r *rpcAppendRes) String() string {
 	return r.resp.String()
 }
 
-func (r *rpcAppendRes) Ready() (*RecordId, error) {
+func (r *rpcAppendRes) Ready() (RecordId, error) {
 	if r.Err != nil {
-		return nil, r.Err
+		return RecordId{}, r.Err
 	}
 	<-r.ready
 	return r.resp, nil
@@ -75,7 +75,7 @@ func (r *rpcAppendRes) setError(err error) {
 // Always use this method because the data channel is properly handled in the method
 func (r *rpcAppendRes) setResponse(res interface{}) {
 	defer close(r.ready)
-	r.resp = FromPbRecordId(res.(*hstreampb.RecordId))
+	r.resp = RecordIdFromPb(res.(*hstreampb.RecordId))
 	r.ready <- struct{}{}
 }
 
@@ -93,14 +93,14 @@ func newProducer(client *HStreamClient, streamName string) *Producer {
 }
 
 // Append will write a single record to the specified stream. This is a synchronous method.
-func (p *Producer) Append(record HStreamRecord) AppendResult {
-	key := record.GetRecordKey()
+func (p *Producer) Append(record *HStreamRecord) AppendResult {
+	key := record.Key
 	entry := buildAppendEntry(p.streamName, key, record)
 	if entry.res.Err != nil {
 		return entry.res
 	}
 
-	sendAppend(p.client, p.streamName, record.GetRecordKey(), []*appendEntry{entry})
+	sendAppend(p.client, p.streamName, record.Key, []*appendEntry{entry})
 	return entry.res
 }
 
@@ -187,15 +187,15 @@ func (p *BatchProducer) Stop() {
 // Append will write batch records to the specified stream. This is an asynchronous method.
 // The backend goroutines are responsible for collecting the batch records and sending the
 // data to the server when the trigger conditions are met.
-func (p *BatchProducer) Append(record HStreamRecord) AppendResult {
-	key := record.GetRecordKey()
+func (p *BatchProducer) Append(record *HStreamRecord) AppendResult {
+	key := record.Key
 	entry := buildAppendEntry(p.streamName, key, record)
 	if entry.res.Err != nil {
 		return entry.res
 	}
 
 	// records are collected by key.
-	appenderId := record.GetRecordType().String() + "-" + key
+	appenderId := record.GetType().String() + "-" + key
 	if appender, ok := p.appends[appenderId]; ok {
 		appender.dataCh <- entry
 		return entry.res
@@ -335,12 +335,9 @@ func (a *appender) resetBuffer() {
 	a.buffer = a.buffer[:0]
 }
 
-func buildAppendEntry(streamName, key string, record HStreamRecord) *appendEntry {
+func buildAppendEntry(streamName, key string, record *HStreamRecord) *appendEntry {
 	res := newRPCAppendRes()
-	pbRecord, err := record.ToPbHStreamRecord()
-	if err != nil {
-		res.Err = err
-	}
+	pbRecord := HStreamRecordToPb(record)
 	entry := &appendEntry{
 		streamName: streamName,
 		key:        key,
