@@ -82,11 +82,10 @@ func (c *Consumer) Stop() {
 // that allows the user to retrieve the return value from the result channel when consumption is complete.
 func (c *Consumer) StartFetch() chan FetchResult {
 	address, err := c.client.lookUpSubscription(c.subId)
-	c.dataChannel = make(chan FetchResult, 100)
 	if err != nil {
-		util.Logger().Error("failed to look up subscription", zap.String("Subscription", c.subId), zap.Error(err))
 		return c.handleFetchError(err)
 	}
+	c.dataChannel = make(chan FetchResult, 100)
 
 	fetchReq := &hstreampb.StreamingFetchRequest{
 		SubscriptionId: c.subId,
@@ -119,7 +118,7 @@ func (c *Consumer) StartFetch() chan FetchResult {
 
 	// spawn a background goroutine to handle ack
 	go func() {
-		util.Logger().Debug("start ackChannel")
+		util.Logger().Info("start ackChannel")
 		for ids := range c.ackChannel {
 			pbIds := make([]*hstreampb.RecordId, 0, len(ids))
 			for _, id := range ids {
@@ -132,7 +131,6 @@ func (c *Consumer) StartFetch() chan FetchResult {
 			}
 			if err = stream.Send(ackReq); err != nil {
 				util.Logger().Error("streaming fetch client send error", zap.String("subId", c.subId), zap.Error(err))
-				return
 			}
 		}
 	}()

@@ -1,13 +1,11 @@
 package hstream
 
 import (
-	"context"
 	"math"
 	"strconv"
 	"sync/atomic"
 	"time"
 
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
@@ -144,10 +142,6 @@ func newBatchProducer(client *HStreamClient, streamName string, opts ...Producer
 		return nil, errors.New("batch size must be greater than 0")
 	}
 
-	if batchProducer.batchSize <= 0 {
-		util.Logger().Error("batch size must be greater than 0")
-		return nil, errors.New("batch size must be greater than 0")
-	}
 	return batchProducer, nil
 }
 
@@ -176,7 +170,6 @@ func TimeOut(timeOut int) ProducerOpt {
 
 // Stop will stop the BatchProducer.
 func (p *BatchProducer) Stop() {
-	util.Logger().Info("Stop BatchProducer", zap.String("streamName", p.streamName))
 	p.isClosed = true
 	close(p.stop)
 	for _, appender := range p.appends {
@@ -190,9 +183,6 @@ func (p *BatchProducer) Stop() {
 func (p *BatchProducer) Append(record *HStreamRecord) AppendResult {
 	key := record.Key
 	entry := buildAppendEntry(p.streamName, key, record)
-	if entry.res.Err != nil {
-		return entry.res
-	}
 
 	// records are collected by key.
 	appenderId := record.GetType().String() + "-" + key
@@ -312,10 +302,7 @@ func sendAppend(hsClient *HStreamClient, targetStream, targetKey string, records
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	res, err := hsClient.SendRequest(ctx, server, req)
-	defer cancel()
-
+	res, err := hsClient.sendRequest(server, req)
 	if err != nil {
 		handleBatchAppendError(err, records)
 		return

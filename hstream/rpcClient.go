@@ -45,6 +45,7 @@ func (c *HStreamClient) GetServerInfo() ([]string, error) {
 	return c.serverInfo, nil
 }
 
+// SendRequest sends a hstreamrpc.Request to the specified server.
 func (c *HStreamClient) SendRequest(ctx context.Context, address string, req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
 	conn, err := c.getConnection(address)
 	if err != nil {
@@ -52,7 +53,18 @@ func (c *HStreamClient) SendRequest(ctx context.Context, address string, req *hs
 	}
 
 	cli := hstreampb.NewHStreamApiClient(conn)
-	return hstreamrpc.Call(ctx, cli, req)
+	resp, err := hstreamrpc.Call(ctx, cli, req)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to send request %#+v to %s", req, address)
+	}
+	return resp, nil
+}
+
+// sendRequest is a helper function to wrap SendRequest function with timeout context.
+func (c *HStreamClient) sendRequest(address string, req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
+	defer cancel()
+	return c.SendRequest(ctx, address, req)
 }
 
 func (c *HStreamClient) Close() {
@@ -125,21 +137,22 @@ func (c *HStreamClient) createConnection(address string) (*grpc.ClientConn, erro
 
 	conn, err := c.connect(address)
 	if err != nil {
-		util.Logger().Warn("Failed to connect to hstreamdb server", zap.String("address", address), zap.Error(err))
-		return nil, errors.WithStack(err)
+		return nil, err
 	}
 	c.connections[address] = conn
 	util.Logger().Info("Connected to hstreamdb server", zap.String("address", address))
 	return conn, nil
 }
 
+// connect will call grpc.DialContext with specified server address.
+// when the function return success, the connection is ready to use.
 func (c *HStreamClient) connect(address string) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, address, grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithUnaryInterceptor(UnaryClientInterceptor))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "failed to dial %s", address)
 	}
 
 	// wait connection state convert to ready
@@ -150,7 +163,7 @@ func (c *HStreamClient) connect(address string) (*grpc.ClientConn, error) {
 			break
 		}
 		if !conn.WaitForStateChange(ctx, state) {
-			return nil, ctx.Err()
+			return nil, errors.WithStack(err)
 		}
 	}
 	return conn, nil
@@ -185,7 +198,7 @@ func (c *HStreamClient) serverDiscovery() error {
 	c.RLock()
 	if len(c.serverInfo) == 0 {
 		c.RUnlock()
-		return errors.Errorf("No hstreamdb server address")
+		return errors.New("No hstreamdb server address")
 	}
 	oldInfo := c.serverInfo
 	c.RUnlock()
