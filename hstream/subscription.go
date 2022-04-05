@@ -2,8 +2,6 @@ package hstream
 
 import (
 	"fmt"
-	"sync"
-
 	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
@@ -12,15 +10,16 @@ import (
 )
 
 type Subscription struct {
-	client   client.Client
-	consumer map[string]*Consumer
-	sync.RWMutex
+	SubscriptionId    string
+	StreamName        string
+	AckTimeoutSeconds int32
 }
 
-func NewSubscription(client client.Client) *Subscription {
-	return &Subscription{
-		client:   client,
-		consumer: make(map[string]*Consumer),
+func (s *Subscription) SubscriptionToPb() *hstreampb.Subscription {
+	return &hstreampb.Subscription{
+		SubscriptionId:    s.SubscriptionId,
+		StreamName:        s.StreamName,
+		AckTimeoutSeconds: s.AckTimeoutSeconds,
 	}
 }
 
@@ -66,7 +65,7 @@ func (c *HStreamClient) DeleteSubscription(subId string) error {
 
 // ListSubscriptions will send a ListSubscriptionsRPC to the server and wait for response.
 func (c *HStreamClient) ListSubscriptions() (*client.SubIter, error) {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +85,7 @@ func (c *HStreamClient) ListSubscriptions() (*client.SubIter, error) {
 
 // CheckExist will send a CheckExistRPC to the server and wait for response.
 func (c *HStreamClient) CheckExist(subId string) (bool, error) {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return false, err
 	}
@@ -120,7 +119,7 @@ func (c *HStreamClient) lookUpSubscriptionWithKey(subId string, key string) (str
 }
 
 func (c *HStreamClient) lookup(subId string, key string) (string, error) {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return "", err
 	}

@@ -1,4 +1,4 @@
-package hstream
+package hstreamrpc
 
 import (
 	"context"

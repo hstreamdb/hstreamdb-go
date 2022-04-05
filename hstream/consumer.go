@@ -40,10 +40,6 @@ func (r *rpcFetchRes) GetResult() ([]ReceivedRecord, error) {
 	return r.result, nil
 }
 
-//func (r *rpcFetchRes) SetResult(res interface{}) {
-//	r.result = res.([]ReceivedRecord)
-//}
-
 func (r *rpcFetchRes) Ack() {
 	ackIds := make([]RecordId, len(r.result))
 	for i, record := range r.result {

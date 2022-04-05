@@ -3,6 +3,7 @@ package hstream
 import (
 	"math"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -120,6 +121,7 @@ type BatchProducer struct {
 	appends     map[string]*appender
 
 	stop chan struct{}
+	lock sync.Mutex
 }
 
 func newBatchProducer(client *HStreamClient, streamName string, opts ...ProducerOpt) (*BatchProducer, error) {
@@ -186,14 +188,15 @@ func (p *BatchProducer) Append(record *HStreamRecord) AppendResult {
 
 	// records are collected by key.
 	appenderId := record.GetType().String() + "-" + key
-	if appender, ok := p.appends[appenderId]; ok {
-		appender.dataCh <- entry
-		return entry.res
+	p.lock.Lock()
+	appender, ok := p.appends[appenderId]
+	if !ok {
+		appender = newAppender(p.client, p.streamName, key, p.batchSize, p.timeOut, p.stop)
+		p.appends[appenderId] = appender
+		go appender.batchAppendLoop()
 	}
+	p.lock.Unlock()
 
-	appender := newAppender(p.client, p.streamName, key, p.batchSize, p.timeOut, p.stop)
-	go appender.batchAppendLoop()
-	p.appends[appenderId] = appender
 	appender.dataCh <- entry
 	return entry.res
 }

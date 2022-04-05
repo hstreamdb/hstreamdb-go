@@ -8,7 +8,6 @@ import (
 	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
-	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 const DEFAULTAPPENDTIMEOUT = time.Second * 5
@@ -20,7 +19,7 @@ type Stream struct {
 	BacklogDuration uint32
 }
 
-func (s *Stream) ToPbHStreamStream() *hstreampb.Stream {
+func (s *Stream) StreamToPb() *hstreampb.Stream {
 	return &hstreampb.Stream{
 		StreamName:        s.StreamName,
 		ReplicationFactor: s.ReplicationFactor,
@@ -65,14 +64,14 @@ func (c *HStreamClient) CreateStream(streamName string, opts ...StreamOpts) erro
 		return errors.New("replication factor must be greater than 0")
 	}
 
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return err
 	}
 
 	req := &hstreamrpc.Request{
 		Type: hstreamrpc.CreateStream,
-		Req:  stream.ToPbHStreamStream(),
+		Req:  stream.StreamToPb(),
 	}
 
 	_, err = c.sendRequest(address, req)
@@ -81,7 +80,7 @@ func (c *HStreamClient) CreateStream(streamName string, opts ...StreamOpts) erro
 
 // DeleteStream will send a DeleteStreamRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) DeleteStream(streamName string) error {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return err
 	}
@@ -99,7 +98,7 @@ func (c *HStreamClient) DeleteStream(streamName string) error {
 
 // ListStreams will send a ListStreamsRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) ListStreams() (*client.StreamIter, error) {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +128,7 @@ func (c *HStreamClient) NewBatchProducer(streamName string, opts ...ProducerOpt)
 
 // LookUpStream will send a LookUpStreamRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) LookUpStream(streamName string, key string) (string, error) {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return "", err
 	}

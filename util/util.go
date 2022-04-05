@@ -4,8 +4,6 @@ import (
 	"math/rand"
 	"strings"
 	"time"
-
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
 )
 
 const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -33,13 +31,4 @@ func RandomString(n int) string {
 	}
 
 	return sb.String()
-}
-
-func RandomServer(client client.Client) (string, error) {
-	infos, err := client.GetServerInfo()
-	if err != nil {
-		return "", err
-	}
-	idx := rand.Intn(len(infos))
-	return infos[idx], nil
 }
