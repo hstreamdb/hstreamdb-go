@@ -2,7 +2,6 @@ package hstream
 
 import (
 	"fmt"
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
@@ -20,6 +19,14 @@ func (s *Subscription) SubscriptionToPb() *hstreampb.Subscription {
 		SubscriptionId:    s.SubscriptionId,
 		StreamName:        s.StreamName,
 		AckTimeoutSeconds: s.AckTimeoutSeconds,
+	}
+}
+
+func SubscriptionFromPb(pb *hstreampb.Subscription) Subscription {
+	return Subscription{
+		SubscriptionId:    pb.SubscriptionId,
+		StreamName:        pb.StreamName,
+		AckTimeoutSeconds: pb.AckTimeoutSeconds,
 	}
 }
 
@@ -64,7 +71,7 @@ func (c *HStreamClient) DeleteSubscription(subId string) error {
 }
 
 // ListSubscriptions will send a ListSubscriptionsRPC to the server and wait for response.
-func (c *HStreamClient) ListSubscriptions() (*client.SubIter, error) {
+func (c *HStreamClient) ListSubscriptions() ([]Subscription, error) {
 	address, err := c.randomServer()
 	if err != nil {
 		return nil, err
@@ -80,7 +87,11 @@ func (c *HStreamClient) ListSubscriptions() (*client.SubIter, error) {
 		return nil, err
 	}
 	subs := resp.Resp.(*hstreampb.ListSubscriptionsResponse).GetSubscription()
-	return client.NewSubIter(subs), nil
+	res := make([]Subscription, 0, len(subs))
+	for _, sub := range subs {
+		res = append(res, SubscriptionFromPb(sub))
+	}
+	return res, nil
 }
 
 // CheckExist will send a CheckExistRPC to the server and wait for response.

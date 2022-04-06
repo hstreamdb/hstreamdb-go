@@ -5,7 +5,6 @@ import (
 	"github.com/pkg/errors"
 	"time"
 
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 )
@@ -24,6 +23,14 @@ func (s *Stream) StreamToPb() *hstreampb.Stream {
 		StreamName:        s.StreamName,
 		ReplicationFactor: s.ReplicationFactor,
 		BacklogDuration:   s.BacklogDuration,
+	}
+}
+
+func StreamFromPb(pb *hstreampb.Stream) Stream {
+	return Stream{
+		StreamName:        pb.StreamName,
+		ReplicationFactor: pb.ReplicationFactor,
+		BacklogDuration:   pb.BacklogDuration,
 	}
 }
 
@@ -97,7 +104,7 @@ func (c *HStreamClient) DeleteStream(streamName string) error {
 }
 
 // ListStreams will send a ListStreamsRPC to HStreamDB server and wait for response.
-func (c *HStreamClient) ListStreams() (*client.StreamIter, error) {
+func (c *HStreamClient) ListStreams() ([]Stream, error) {
 	address, err := c.randomServer()
 	if err != nil {
 		return nil, err
@@ -113,7 +120,11 @@ func (c *HStreamClient) ListStreams() (*client.StreamIter, error) {
 		return nil, err
 	}
 	streams := resp.Resp.(*hstreampb.ListStreamsResponse).GetStreams()
-	return client.NewStreamIter(streams), nil
+	res := make([]Stream, 0, len(streams))
+	for _, stream := range streams {
+		res = append(res, StreamFromPb(stream))
+	}
+	return res, nil
 }
 
 // NewProducer will create a Producer for specific stream

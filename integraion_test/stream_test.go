@@ -70,11 +70,11 @@ func (s *testStreamSuite) TestListStreams() {
 		}
 	}()
 
-	iter, err := s.client.ListStreams()
+	res, err := s.client.ListStreams()
 	s.NoError(err)
-	for ; iter.Valid(); iter.Next() {
-		streamName := iter.Item().GetStreamName()
-		s.Contains(streams, streamName)
+
+	for _, stream := range res {
+		s.Contains(streams, stream.StreamName)
 	}
 }
 

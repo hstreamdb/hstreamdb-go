@@ -62,13 +62,12 @@ func main() {
 	}
 
 	// List all streams
-	iter, err := client.ListStreams()
+	streams, err := client.ListStreams()
 	if err != nil {
 		log.Fatalf("Listing streams error: %s", err)
 	}
-	for ; iter.Valid(); iter.Next() {
-		streamName := iter.Item().GetStreamName()
-		log.Printf("Stream: %s\n", streamName)
+	for _, stream := range streams {
+		log.Printf("Stream: %+v\n", stream)
 	}
 }
 ```
@@ -213,13 +212,12 @@ func main() {
 	err = client.CreateSubscription(subId, streamName, 5)
 
 	// List all subscriptions
-	iter, err := client.ListSubscriptions()
+	subs, err := client.ListSubscriptions()
 	if err != nil {
 		log.Fatalf("Listing subscriptions error: %s", err)
 	}
-	for ; iter.Valid(); iter.Next() {
-		subId := iter.Item().GetSubscriptionId()
-		log.Printf("SubscriptionId: %s", subId)
+	for _, sub := range subs {
+		log.Printf("SubscriptionId: %+v", subId)
 	}
 }
 ```
