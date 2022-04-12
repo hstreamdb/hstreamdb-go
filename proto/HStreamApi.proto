@@ -144,6 +144,7 @@ message Subscription {
   string subscriptionId = 1;
   string streamName = 2;
   int32 ackTimeoutSeconds = 3;
+  int32 maxUnackedRecords = 4;
 }
 
 message DeleteSubscriptionRequest {
@@ -162,7 +163,6 @@ message StreamingFetchRequest {
   string subscriptionId = 1;
   string consumerName = 2;
   string orderingKey = 3;
-
   repeated RecordId ackIds = 4;
 }
 
@@ -457,9 +457,10 @@ message ServerNode {
 }
 
 enum NodeState {
-  Running = 0;
-  Terminated = 1;
-  Dead = 2;
+  Starting = 0;
+  Running = 1;
+  Unavailable = 2;
+  Dead = 3;
 }
 
 message ServerNodeStatus {
