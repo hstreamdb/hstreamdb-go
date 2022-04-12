@@ -1,13 +1,12 @@
 package hstream
 
 import (
-	"context"
 	"math"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
@@ -122,6 +121,7 @@ type BatchProducer struct {
 	appends     map[string]*appender
 
 	stop chan struct{}
+	lock sync.Mutex
 }
 
 func newBatchProducer(client *HStreamClient, streamName string, opts ...ProducerOpt) (*BatchProducer, error) {
@@ -144,10 +144,6 @@ func newBatchProducer(client *HStreamClient, streamName string, opts ...Producer
 		return nil, errors.New("batch size must be greater than 0")
 	}
 
-	if batchProducer.batchSize <= 0 {
-		util.Logger().Error("batch size must be greater than 0")
-		return nil, errors.New("batch size must be greater than 0")
-	}
 	return batchProducer, nil
 }
 
@@ -176,7 +172,6 @@ func TimeOut(timeOut int) ProducerOpt {
 
 // Stop will stop the BatchProducer.
 func (p *BatchProducer) Stop() {
-	util.Logger().Info("Stop BatchProducer", zap.String("streamName", p.streamName))
 	p.isClosed = true
 	close(p.stop)
 	for _, appender := range p.appends {
@@ -190,20 +185,18 @@ func (p *BatchProducer) Stop() {
 func (p *BatchProducer) Append(record *HStreamRecord) AppendResult {
 	key := record.Key
 	entry := buildAppendEntry(p.streamName, key, record)
-	if entry.res.Err != nil {
-		return entry.res
-	}
 
 	// records are collected by key.
 	appenderId := record.GetType().String() + "-" + key
-	if appender, ok := p.appends[appenderId]; ok {
-		appender.dataCh <- entry
-		return entry.res
+	p.lock.Lock()
+	appender, ok := p.appends[appenderId]
+	if !ok {
+		appender = newAppender(p.client, p.streamName, key, p.batchSize, p.timeOut, p.stop)
+		p.appends[appenderId] = appender
+		go appender.batchAppendLoop()
 	}
+	p.lock.Unlock()
 
-	appender := newAppender(p.client, p.streamName, key, p.batchSize, p.timeOut, p.stop)
-	go appender.batchAppendLoop()
-	p.appends[appenderId] = appender
 	appender.dataCh <- entry
 	return entry.res
 }
@@ -312,10 +305,7 @@ func sendAppend(hsClient *HStreamClient, targetStream, targetKey string, records
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	res, err := hsClient.SendRequest(ctx, server, req)
-	defer cancel()
-
+	res, err := hsClient.sendRequest(server, req)
 	if err != nil {
 		handleBatchAppendError(err, records)
 		return

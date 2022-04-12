@@ -1,14 +1,12 @@
 package hstream
 
 import (
-	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"time"
 
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
-	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 const DEFAULTAPPENDTIMEOUT = time.Second * 5
@@ -20,11 +18,19 @@ type Stream struct {
 	BacklogDuration uint32
 }
 
-func (s *Stream) ToPbHStreamStream() *hstreampb.Stream {
+func (s *Stream) StreamToPb() *hstreampb.Stream {
 	return &hstreampb.Stream{
 		StreamName:        s.StreamName,
 		ReplicationFactor: s.ReplicationFactor,
 		BacklogDuration:   s.BacklogDuration,
+	}
+}
+
+func StreamFromPb(pb *hstreampb.Stream) Stream {
+	return Stream{
+		StreamName:        pb.StreamName,
+		ReplicationFactor: pb.ReplicationFactor,
+		BacklogDuration:   pb.BacklogDuration,
 	}
 }
 
@@ -38,7 +44,7 @@ func WithReplicationFactor(replicationFactor uint32) StreamOpts {
 	}
 }
 
-// EnableBacklog sets the backlog duration of the stream.
+// EnableBacklog sets the backlog duration in seconds for the stream.
 func EnableBacklog(backlogDuration uint32) StreamOpts {
 	return func(stream *Stream) {
 		stream.BacklogDuration = backlogDuration
@@ -46,12 +52,12 @@ func EnableBacklog(backlogDuration uint32) StreamOpts {
 }
 
 // defaultStream create a default stream with 3 replicas,
-// the backlog duration is set to 0, which means forbidden backlog
+// the backlog duration is set to 7 days
 func defaultStream(name string) *Stream {
 	return &Stream{
 		StreamName:        name,
 		ReplicationFactor: 3,
-		BacklogDuration:   0,
+		BacklogDuration:   7 * 24 * 60 * 60,
 	}
 }
 
@@ -62,30 +68,26 @@ func (c *HStreamClient) CreateStream(streamName string, opts ...StreamOpts) erro
 		opt(stream)
 	}
 	if stream.ReplicationFactor < 1 {
-		return fmt.Errorf("replication factor must be greater than 0")
+		return errors.New("replication factor must be greater than 0")
 	}
 
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return err
 	}
 
 	req := &hstreamrpc.Request{
 		Type: hstreamrpc.CreateStream,
-		Req:  stream.ToPbHStreamStream(),
+		Req:  stream.StreamToPb(),
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	defer cancel()
-	if _, err = c.SendRequest(ctx, address, req); err != nil {
-		return err
-	}
-	return nil
+	_, err = c.sendRequest(address, req)
+	return err
 }
 
 // DeleteStream will send a DeleteStreamRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) DeleteStream(streamName string) error {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return err
 	}
@@ -97,17 +99,13 @@ func (c *HStreamClient) DeleteStream(streamName string) error {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	defer cancel()
-	if _, err = c.SendRequest(ctx, address, req); err != nil {
-		return err
-	}
-	return nil
+	_, err = c.sendRequest(address, req)
+	return err
 }
 
 // ListStreams will send a ListStreamsRPC to HStreamDB server and wait for response.
-func (c *HStreamClient) ListStreams() (*client.StreamIter, error) {
-	address, err := util.RandomServer(c)
+func (c *HStreamClient) ListStreams() ([]Stream, error) {
+	address, err := c.randomServer()
 	if err != nil {
 		return nil, err
 	}
@@ -118,13 +116,15 @@ func (c *HStreamClient) ListStreams() (*client.StreamIter, error) {
 	}
 
 	var resp *hstreamrpc.Response
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	defer cancel()
-	if resp, err = c.SendRequest(ctx, address, req); err != nil {
+	if resp, err = c.sendRequest(address, req); err != nil {
 		return nil, err
 	}
 	streams := resp.Resp.(*hstreampb.ListStreamsResponse).GetStreams()
-	return client.NewStreamIter(streams), nil
+	res := make([]Stream, 0, len(streams))
+	for _, stream := range streams {
+		res = append(res, StreamFromPb(stream))
+	}
+	return res, nil
 }
 
 // NewProducer will create a Producer for specific stream
@@ -139,7 +139,7 @@ func (c *HStreamClient) NewBatchProducer(streamName string, opts ...ProducerOpt)
 
 // LookUpStream will send a LookUpStreamRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) LookUpStream(streamName string, key string) (string, error) {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return "", err
 	}
@@ -153,9 +153,7 @@ func (c *HStreamClient) LookUpStream(streamName string, key string) (string, err
 	}
 
 	var resp *hstreamrpc.Response
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	defer cancel()
-	if resp, err = c.SendRequest(ctx, address, req); err != nil {
+	if resp, err = c.sendRequest(address, req); err != nil {
 		return "", err
 	}
 	node := resp.Resp.(*hstreampb.LookupStreamResponse).GetServerNode()

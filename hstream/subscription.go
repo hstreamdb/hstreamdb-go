@@ -1,28 +1,32 @@
 package hstream
 
 import (
-	"context"
 	"fmt"
-	"sync"
-
-	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
 type Subscription struct {
-	client   client.Client
-	consumer map[string]*Consumer
-	sync.RWMutex
+	SubscriptionId    string
+	StreamName        string
+	AckTimeoutSeconds int32
 }
 
-func NewSubscription(client client.Client) *Subscription {
-	return &Subscription{
-		client:   client,
-		consumer: make(map[string]*Consumer),
+func (s *Subscription) SubscriptionToPb() *hstreampb.Subscription {
+	return &hstreampb.Subscription{
+		SubscriptionId:    s.SubscriptionId,
+		StreamName:        s.StreamName,
+		AckTimeoutSeconds: s.AckTimeoutSeconds,
+	}
+}
+
+func SubscriptionFromPb(pb *hstreampb.Subscription) Subscription {
+	return Subscription{
+		SubscriptionId:    pb.SubscriptionId,
+		StreamName:        pb.StreamName,
+		AckTimeoutSeconds: pb.AckTimeoutSeconds,
 	}
 }
 
@@ -33,7 +37,8 @@ func (c *HStreamClient) CreateSubscription(subId string, streamName string, ackT
 		StreamName:        streamName,
 		AckTimeoutSeconds: ackTimeout,
 	}
-	address, err := util.RandomServer(c)
+
+	address, err := c.lookUpSubscription(subId)
 	if err != nil {
 		return err
 	}
@@ -43,17 +48,13 @@ func (c *HStreamClient) CreateSubscription(subId string, streamName string, ackT
 		Req:  sub,
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	defer cancel()
-	if _, err = c.SendRequest(ctx, address, req); err != nil {
-		return err
-	}
-	return nil
+	_, err = c.sendRequest(address, req)
+	return err
 }
 
 // DeleteSubscription will send a DeleteSubscriptionRPC to the server and wait for response.
 func (c *HStreamClient) DeleteSubscription(subId string) error {
-	address, err := util.RandomServer(c)
+	address, err := c.lookUpSubscription(subId)
 	if err != nil {
 		return err
 	}
@@ -65,17 +66,13 @@ func (c *HStreamClient) DeleteSubscription(subId string) error {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	defer cancel()
-	if _, err = c.SendRequest(ctx, address, req); err != nil {
-		return err
-	}
-	return nil
+	_, err = c.sendRequest(address, req)
+	return err
 }
 
 // ListSubscriptions will send a ListSubscriptionsRPC to the server and wait for response.
-func (c *HStreamClient) ListSubscriptions() (*client.SubIter, error) {
-	address, err := util.RandomServer(c)
+func (c *HStreamClient) ListSubscriptions() ([]Subscription, error) {
+	address, err := c.randomServer()
 	if err != nil {
 		return nil, err
 	}
@@ -86,18 +83,20 @@ func (c *HStreamClient) ListSubscriptions() (*client.SubIter, error) {
 	}
 
 	var resp *hstreamrpc.Response
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	defer cancel()
-	if resp, err = c.SendRequest(ctx, address, req); err != nil {
+	if resp, err = c.sendRequest(address, req); err != nil {
 		return nil, err
 	}
 	subs := resp.Resp.(*hstreampb.ListSubscriptionsResponse).GetSubscription()
-	return client.NewSubIter(subs), nil
+	res := make([]Subscription, 0, len(subs))
+	for _, sub := range subs {
+		res = append(res, SubscriptionFromPb(sub))
+	}
+	return res, nil
 }
 
 // CheckExist will send a CheckExistRPC to the server and wait for response.
 func (c *HStreamClient) CheckExist(subId string) (bool, error) {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return false, err
 	}
@@ -110,9 +109,7 @@ func (c *HStreamClient) CheckExist(subId string) (bool, error) {
 	}
 
 	var resp *hstreamrpc.Response
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	defer cancel()
-	if resp, err = c.SendRequest(ctx, address, req); err != nil {
+	if resp, err = c.sendRequest(address, req); err != nil {
 		return false, err
 	}
 	isExist := resp.Resp.(*hstreampb.CheckSubscriptionExistResponse).Exists
@@ -133,7 +130,7 @@ func (c *HStreamClient) lookUpSubscriptionWithKey(subId string, key string) (str
 }
 
 func (c *HStreamClient) lookup(subId string, key string) (string, error) {
-	address, err := util.RandomServer(c)
+	address, err := c.randomServer()
 	if err != nil {
 		return "", err
 	}
@@ -158,11 +155,8 @@ func (c *HStreamClient) lookup(subId string, key string) (string, error) {
 	}
 
 	var resp *hstreamrpc.Response
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
-	defer cancel()
-	if resp, err = c.SendRequest(ctx, address, req); err != nil {
-		util.Logger().Error("lookup subscription error", zap.String("subId", subId), zap.String("key", key), zap.Error(err))
-		return "", errors.WithStack(err)
+	if resp, err = c.sendRequest(address, req); err != nil {
+		return "", err
 	}
 	var node *hstreampb.ServerNode
 	if len(key) != 0 {

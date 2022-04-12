@@ -87,11 +87,10 @@ func (s *testSubscriptionSuite) TestListSubscription() {
 		}
 	}()
 
-	iter, err := s.client.ListSubscriptions()
+	res, err := s.client.ListSubscriptions()
 	s.NoError(err)
-	for ; iter.Valid(); iter.Next() {
-		subId := iter.Item().GetSubscriptionId()
-		s.Contains(subs, subId)
+	for _, sub := range res {
+		s.Contains(subs, sub.SubscriptionId)
 	}
 }
 
