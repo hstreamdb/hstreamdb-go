@@ -5,6 +5,7 @@ import (
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -12,6 +13,7 @@ type Subscription struct {
 	SubscriptionId    string
 	StreamName        string
 	AckTimeoutSeconds int32
+	MaxUnackedRecords int32
 }
 
 func (s *Subscription) SubscriptionToPb() *hstreampb.Subscription {
@@ -19,6 +21,7 @@ func (s *Subscription) SubscriptionToPb() *hstreampb.Subscription {
 		SubscriptionId:    s.SubscriptionId,
 		StreamName:        s.StreamName,
 		AckTimeoutSeconds: s.AckTimeoutSeconds,
+		MaxUnackedRecords: s.MaxUnackedRecords,
 	}
 }
 
@@ -27,18 +30,40 @@ func SubscriptionFromPb(pb *hstreampb.Subscription) Subscription {
 		SubscriptionId:    pb.SubscriptionId,
 		StreamName:        pb.StreamName,
 		AckTimeoutSeconds: pb.AckTimeoutSeconds,
+		MaxUnackedRecords: pb.MaxUnackedRecords,
 	}
 }
 
-// CreateSubscription will send a CreateSubscriptionRPC to the server and wait for response.
+// CreateSubscription will create a subscription with MaxUnackedRecords set to 10000 by default
 func (c *HStreamClient) CreateSubscription(subId string, streamName string, ackTimeout int32) error {
 	sub := &hstreampb.Subscription{
 		SubscriptionId:    subId,
 		StreamName:        streamName,
 		AckTimeoutSeconds: ackTimeout,
+		MaxUnackedRecords: 10000,
+	}
+	return c.createSubscription(sub)
+}
+
+// CreateSubscriptionWithMaxUnack will create a subscription with the specified MaxUnackedRecords
+func (c *HStreamClient) CreateSubscriptionWithMaxUnack(
+	subId string, streamName string, ackTimeout int32, maxUnack int32) error {
+	if maxUnack < 0 {
+		return errors.New("maxUnack must be greater than or equal to 0")
 	}
 
-	address, err := c.lookUpSubscription(subId)
+	sub := &hstreampb.Subscription{
+		SubscriptionId:    subId,
+		StreamName:        streamName,
+		AckTimeoutSeconds: ackTimeout,
+		MaxUnackedRecords: maxUnack,
+	}
+	return c.createSubscription(sub)
+}
+
+// createSubscription will send a CreateSubscriptionRPC to the server and wait for response.
+func (c *HStreamClient) createSubscription(sub *hstreampb.Subscription) error {
+	address, err := c.lookUpSubscription(sub.SubscriptionId)
 	if err != nil {
 		return err
 	}
