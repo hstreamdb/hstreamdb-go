@@ -22,6 +22,15 @@ func NewHStreamClient(address string) (*HStreamClient, error) {
 	}, nil
 }
 
+// reqToRandomServer is a helper function to send request to a random server.
+func (c *HStreamClient) reqToRandomServer(req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
+	address, err := c.randomServer()
+	if err != nil {
+		return nil, err
+	}
+	return c.sendRequest(address, req)
+}
+
 // sendRequest is a helper function to wrap SendRequest function with timeout context.
 func (c *HStreamClient) sendRequest(address string, req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)

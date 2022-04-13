@@ -27,6 +27,11 @@ const (
 	StreamingFetch
 
 	DescribeCluster ReqType = 512 + iota
+
+	AdminRequest ReqType = 1024 + iota
+
+	PerStreamStats ReqType = 2048 + iota
+	PerStreamStatsAll
 )
 
 func (t ReqType) String() string {
@@ -59,6 +64,12 @@ func (t ReqType) String() string {
 		return "StreamingFetch"
 	case DescribeCluster:
 		return "DescribeCluster"
+	case AdminRequest:
+		return "AdminRequest"
+	case PerStreamStats:
+		return "PerStreamStats"
+	case PerStreamStatsAll:
+		return "PerStreamStatsAll"
 	}
 	return "Unknown"
 }
@@ -107,6 +118,12 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 		resp.Resp, err = cli.StreamingFetch(ctx)
 	case DescribeCluster:
 		resp.Resp, err = cli.DescribeCluster(ctx, req.Req.(*emptypb.Empty))
+	case AdminRequest:
+		resp.Resp, err = cli.SendAdminCommand(ctx, req.Req.(*hstreampb.AdminCommandRequest))
+	case PerStreamStats:
+		resp.Resp, err = cli.PerStreamTimeSeriesStats(ctx, req.Req.(*hstreampb.PerStreamTimeSeriesStatsRequest))
+	case PerStreamStatsAll:
+		resp.Resp, err = cli.PerStreamTimeSeriesStatsAll(ctx, req.Req.(*hstreampb.PerStreamTimeSeriesStatsAllRequest))
 	}
 	return resp, err
 }

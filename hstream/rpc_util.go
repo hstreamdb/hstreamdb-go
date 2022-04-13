@@ -122,3 +122,16 @@ func fromRPCHRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*HRec
 	hRecord.Header = header
 	return hRecord, nil
 }
+
+func StatsIntervalsToPb(intervals []int32) *hstreampb.StatsIntervalVals {
+	return &hstreampb.StatsIntervalVals{
+		Intervals: intervals,
+	}
+}
+
+func StatsFromPb(stats *hstreampb.StatsDoubleVals) (*Stats, error) {
+	stats.GetVals()
+	return &Stats{
+		Values: stats.GetVals(),
+	}, nil
+}
