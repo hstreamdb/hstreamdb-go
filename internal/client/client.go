@@ -148,7 +148,7 @@ func (c *RPCClient) createConnection(address string) (*grpc.ClientConn, error) {
 		return nil, err
 	}
 	c.connections[address] = conn
-	util.Logger().Info("Connected to hstreamdb server", zap.String("address", address))
+	util.Logger().Info("Connected to hstreamdb server", zap.String("address", address), zap.String("state", conn.GetState().String()))
 	return conn, nil
 }
 
@@ -156,22 +156,28 @@ func (c *RPCClient) createConnection(address string) (*grpc.ClientConn, error) {
 // when the function return success, the connection is ready to use.
 func (c *RPCClient) connect(address string) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), DIALTIMEOUT)
-	defer cancel()
 	conn, err := grpc.DialContext(ctx, address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(hstreamrpc.UnaryClientInterceptor))
+		grpc.WithUnaryInterceptor(hstreamrpc.UnaryClientInterceptor) /*, grpc.WithBlock()*/)
 	if err != nil {
+		cancel()
 		return nil, errors.Wrapf(err, "failed to dial %s", address)
 	}
+	cancel()
 
-	// wait connection state convert to ready
-	conn.WaitForStateChange(ctx, connectivity.Idle)
+	//// wait connection state convert to ready
+	// FIXME: use grpc.WithBlock() to wait connection ready. This part of the code is currently reserved for debugging purposes
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), DIALTIMEOUT)
+	conn.WaitForStateChange(waitCtx, connectivity.Idle)
+	defer waitCancel()
 	for {
 		state := conn.GetState()
+		util.Logger().Debug("hstreamdb server connection state", zap.String("address", address), zap.String("state", state.String()))
 		if state == connectivity.Ready {
 			break
 		}
-		if !conn.WaitForStateChange(ctx, state) {
-			return nil, errors.WithStack(err)
+		if !conn.WaitForStateChange(waitCtx, state) {
+			util.Logger().Error("WaitForStateChange failed", zap.String("address", address), zap.String("state", state.String()))
+			return nil, errors.Wrapf(waitCtx.Err(), "WaitForStateChange failed, state: %s", state.String())
 		}
 	}
 	return conn, nil
