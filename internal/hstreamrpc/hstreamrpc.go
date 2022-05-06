@@ -2,6 +2,7 @@ package hstreamrpc
 
 import (
 	"context"
+	"github.com/hstreamdb/hstreamdb-go/internal/retry"
 
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -99,7 +100,7 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 	case LookupStream:
 		resp.Resp, err = cli.LookupStream(ctx, req.Req.(*hstreampb.LookupStreamRequest))
 	case Append:
-		resp.Resp, err = cli.Append(ctx, req.Req.(*hstreampb.AppendRequest))
+		resp.Resp, err = cli.Append(ctx, req.Req.(*hstreampb.AppendRequest), retry.AppendRetry()...)
 	case CreateSubscription:
 		resp.Resp, err = cli.CreateSubscription(ctx, req.Req.(*hstreampb.Subscription))
 	case ListSubscriptions:
@@ -115,7 +116,7 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 	case WatchSubscription:
 		resp.Resp, err = cli.WatchSubscription(ctx, req.Req.(*hstreampb.WatchSubscriptionRequest))
 	case StreamingFetch:
-		resp.Resp, err = cli.StreamingFetch(ctx)
+		resp.Resp, err = cli.StreamingFetch(ctx, retry.FetchRetry()...)
 	case DescribeCluster:
 		resp.Resp, err = cli.DescribeCluster(ctx, req.Req.(*emptypb.Empty))
 	case AdminRequest:
