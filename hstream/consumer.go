@@ -3,6 +3,8 @@ package hstream
 import (
 	"context"
 	"io"
+	"sync"
+	"time"
 
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
@@ -10,42 +12,33 @@ import (
 	"go.uber.org/zap"
 )
 
-// FetchResult is a handler to process the results of streamingFetch.
-type FetchResult interface {
-	// GetResult will return when the fetch result is ready,
-	// or an error if the fetch fails.
-	GetResult() ([]ReceivedRecord, error)
-	// Ack will send an acknowledgement to the server so that
-	// server won't resend the acked record.
-	Ack()
+const (
+	MAX_BATCH_ACKIDS    = 100
+	ACK_COLLECT_TIMEOUT = time.Second * 5
+)
+
+// FetchRecords encapsulates the results of StreamingFetch. StreamingFetch may consume one
+// or more pieces of data at a time.
+type FetchRecords struct {
+	Result []*FetchResult
+	Err    error
 }
 
-type rpcFetchRes struct {
-	result     []ReceivedRecord
-	Err        error
-	ackChannel chan []RecordId
+type FetchResult struct {
+	ReceivedRecord
+	ackCh chan RecordId
 }
 
-func newRpcFetchRes(result []ReceivedRecord, ackChannel chan []RecordId) *rpcFetchRes {
-	return &rpcFetchRes{
-		result:     result,
-		ackChannel: ackChannel,
+func newFetchRes(record ReceivedRecord, ackCh chan RecordId) *FetchResult {
+	res := &FetchResult{
+		ackCh: ackCh,
 	}
+	res.ReceivedRecord = record
+	return res
 }
 
-func (r *rpcFetchRes) GetResult() ([]ReceivedRecord, error) {
-	if r.Err != nil {
-		return nil, r.Err
-	}
-	return r.result, nil
-}
-
-func (r *rpcFetchRes) Ack() {
-	ackIds := make([]RecordId, len(r.result))
-	for i, record := range r.result {
-		ackIds[i] = record.GetRecordId()
-	}
-	r.ackChannel <- ackIds
+func (f *FetchResult) Ack() {
+	f.ackCh <- f.GetRecordId()
 }
 
 // Consumer will consume records from specific subscription.
@@ -53,10 +46,11 @@ type Consumer struct {
 	client       *HStreamClient
 	subId        string
 	consumerName string
-	dataChannel  chan FetchResult
-	ackChannel   chan []RecordId
+	dataChannel  chan FetchRecords
+	ackChannel   chan RecordId
 
 	streamingCancel context.CancelFunc
+	waitAck         sync.WaitGroup
 }
 
 func NewConsumer(client *HStreamClient, subId string, consumerName string) *Consumer {
@@ -64,24 +58,25 @@ func NewConsumer(client *HStreamClient, subId string, consumerName string) *Cons
 		client:       client,
 		subId:        subId,
 		consumerName: consumerName,
-		ackChannel:   make(chan []RecordId, 100),
+		ackChannel:   make(chan RecordId, 100),
 	}
 }
 
 // Stop will stop the consumer.
 func (c *Consumer) Stop() {
-	c.streamingCancel()
 	close(c.ackChannel)
+	c.waitAck.Wait()
+	c.streamingCancel()
 }
 
 // StartFetch consumes data from the specified subscription. This method is an asynchronous method
 // that allows the user to retrieve the return value from the result channel when consumption is complete.
-func (c *Consumer) StartFetch() chan FetchResult {
+func (c *Consumer) StartFetch() chan FetchRecords {
 	address, err := c.client.lookUpSubscription(c.subId)
 	if err != nil {
 		return c.handleFetchError(err)
 	}
-	c.dataChannel = make(chan FetchResult, 100)
+	c.dataChannel = make(chan FetchRecords, 100)
 
 	fetchReq := &hstreampb.StreamingFetchRequest{
 		SubscriptionId: c.subId,
@@ -113,24 +108,73 @@ func (c *Consumer) StartFetch() chan FetchResult {
 	c.fetch(cancelCtx, stream)
 
 	// spawn a background goroutine to handle ack
+	c.waitAck.Add(1)
 	go func() {
 		util.Logger().Info("start ackChannel")
-		for ids := range c.ackChannel {
-			pbIds := make([]*hstreampb.RecordId, 0, len(ids))
-			for _, id := range ids {
-				pbIds = append(pbIds, RecordIdToPb(id))
+		defer c.waitAck.Done()
+		for {
+			ackIds, terminate := c.fetchPendingAcks()
+			if len(ackIds) != 0 {
+				c.sendAckReq(stream, ackIds)
+				for i := 0; i < len(ackIds); i++ {
+					ackIds[i] = nil
+				}
+				ackIds = ackIds[:0]
 			}
-			ackReq := &hstreampb.StreamingFetchRequest{
-				SubscriptionId: c.subId,
-				ConsumerName:   c.consumerName,
-				AckIds:         pbIds,
-			}
-			if err = stream.Send(ackReq); err != nil {
-				util.Logger().Error("streaming fetch client send error", zap.String("subId", c.subId), zap.Error(err))
+			if terminate {
+				break
 			}
 		}
 	}()
 	return c.dataChannel
+}
+
+// fetchPendingAcks will collect pending acks from the ack channel. Function will return when:
+//   1. collect MAX_BATCH_ACKIDS: return (ackIds, false)
+//	 2. ACK_COLLECT_TIMEOUT trigger: return (ackIds, false)
+//   3. consumer is stopped and ackChannel is closed: return (ackIds, true)
+func (c *Consumer) fetchPendingAcks() ([]*hstreampb.RecordId, bool) {
+	timer := time.NewTimer(ACK_COLLECT_TIMEOUT)
+	ackIds := make([]*hstreampb.RecordId, 0, MAX_BATCH_ACKIDS)
+
+	for {
+		select {
+		case id, ok := <-c.ackChannel:
+			if !ok {
+				util.Logger().Debug("ack channel closed, stop fetch pending acks.")
+				return ackIds, true
+			}
+			ackIds = append(ackIds, RecordIdToPb(id))
+			if len(ackIds) >= MAX_BATCH_ACKIDS {
+				return ackIds, false
+			}
+		case <-timer.C:
+			// when timeout, do an additional non-block try to collect as more AckIDs as possible
+			for len(ackIds) < MAX_BATCH_ACKIDS {
+				select {
+				case id, ok := <-c.ackChannel:
+					if !ok {
+						util.Logger().Debug("ack channel closed, stop fetch pending acks.")
+						return ackIds, true
+					}
+					ackIds = append(ackIds, RecordIdToPb(id))
+				default:
+				}
+			}
+			return ackIds, false
+		}
+	}
+}
+
+func (c *Consumer) sendAckReq(cli hstreampb.HStreamApi_StreamingFetchClient, ackIds []*hstreampb.RecordId) {
+	ackReq := &hstreampb.StreamingFetchRequest{
+		SubscriptionId: c.subId,
+		ConsumerName:   c.consumerName,
+		AckIds:         ackIds,
+	}
+	if err := cli.Send(ackReq); err != nil {
+		util.Logger().Error("streaming fetch client send error", zap.String("subId", c.subId), zap.Error(err))
+	}
 }
 
 func (c *Consumer) fetch(cancelCtx context.Context, stream hstreampb.HStreamApi_StreamingFetchClient) {
@@ -149,17 +193,18 @@ func (c *Consumer) fetch(cancelCtx context.Context, stream hstreampb.HStreamApi_
 				zap.String("subId", c.subId),
 				zap.Int("count", len(records.GetReceivedRecords())))
 
-			var result *rpcFetchRes
+			var result FetchRecords
 			if err != nil && err == io.EOF {
 				util.Logger().Info("streamingFetch receive EOF", zap.String("subId", c.subId))
 				return
 			} else if err != nil {
 				util.Logger().Error("streamingFetch receive error", zap.String("subId", c.subId), zap.Error(err))
-				result = newRpcFetchRes(nil, c.ackChannel)
-				result.Err = err
+				result = FetchRecords{
+					Err: err,
+				}
 			} else {
 				recordSize := len(records.GetReceivedRecords())
-				res := make([]ReceivedRecord, 0, recordSize)
+				res := make([]*FetchResult, 0, recordSize)
 				// FIXME: find a proper way to handle parse error
 				var parseError error
 				for _, record := range records.GetReceivedRecords() {
@@ -168,14 +213,18 @@ func (c *Consumer) fetch(cancelCtx context.Context, stream hstreampb.HStreamApi_
 						parseError = err
 						break
 					}
-					res = append(res, receivedRecord)
+					fetchResult := newFetchRes(receivedRecord, c.ackChannel)
+					res = append(res, fetchResult)
 				}
 
 				if parseError != nil {
-					result = newRpcFetchRes(nil, c.ackChannel)
-					result.Err = parseError
+					result = FetchRecords{
+						Err: parseError,
+					}
 				} else {
-					result = newRpcFetchRes(res, c.ackChannel)
+					result = FetchRecords{
+						Result: res,
+					}
 				}
 			}
 
@@ -185,9 +234,10 @@ func (c *Consumer) fetch(cancelCtx context.Context, stream hstreampb.HStreamApi_
 }
 
 // handleFetchError is a helper function to set an error result.
-func (c *Consumer) handleFetchError(err error) chan FetchResult {
-	errRes := &rpcFetchRes{}
-	errRes.Err = err
+func (c *Consumer) handleFetchError(err error) chan FetchRecords {
+	errRes := FetchRecords{
+		Err: err,
+	}
 	c.dataChannel <- errRes
 	close(c.dataChannel)
 	return c.dataChannel
