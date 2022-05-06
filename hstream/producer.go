@@ -30,52 +30,37 @@ type AppendResult interface {
 	Ready() (RecordId, error)
 }
 
-// rpcAppendRes FIXME:
-// - find another way to replace channel here.
-//	  - if somebody create rpcAppendRes but never call SetResponse or SetError,
-// 		the channel may casue memory leak.
-//    - if somebody call SetResponse and SetError, the channel will panic.
 type rpcAppendRes struct {
 	ready chan struct{}
 	resp  RecordId
-	Err   error
+	err   error
 }
 
 func newRPCAppendRes() *rpcAppendRes {
 	return &rpcAppendRes{
-		ready: make(chan struct{}, 1),
+		ready: make(chan struct{}),
 	}
 }
 
 func (r *rpcAppendRes) String() string {
-	if r.Err != nil {
-		return r.Err.Error()
+	if r.err != nil {
+		return r.err.Error()
 	}
 	return r.resp.String()
 }
 
 func (r *rpcAppendRes) Ready() (RecordId, error) {
-	if r.Err != nil {
-		return RecordId{}, r.Err
-	}
 	<-r.ready
-	return r.resp, nil
+	return r.resp, r.err
 }
 
-// setError is a helper function to set the error result of append request.
-// Always use this method because the data channel is properly handled in the method
-func (r *rpcAppendRes) setError(err error) {
-	defer close(r.ready)
-	r.Err = err
-	r.ready <- struct{}{}
-}
-
-// setResponse is a helper function to set the result of append request.
-// Always use this method because the data channel is properly handled in the method
-func (r *rpcAppendRes) setResponse(res interface{}) {
+// setResponse will set the response of the append request. also it
+// will close the ready channel so that user can get result by calling
+// Ready().
+func (r *rpcAppendRes) setResponse(res interface{}, err error) {
 	defer close(r.ready)
 	r.resp = RecordIdFromPb(res.(*hstreampb.RecordId))
-	r.ready <- struct{}{}
+	r.err = err
 }
 
 // Producer produce a single piece of data to the specified stream.
@@ -95,9 +80,6 @@ func newProducer(client *HStreamClient, streamName string) *Producer {
 func (p *Producer) Append(record *HStreamRecord) AppendResult {
 	key := record.Key
 	entry := buildAppendEntry(p.streamName, key, record)
-	if entry.res.Err != nil {
-		return entry.res
-	}
 
 	sendAppend(p.client, p.streamName, record.Key, []*appendEntry{entry})
 	return entry.res
@@ -112,13 +94,12 @@ type ProducerOpt func(producer *BatchProducer)
 
 // BatchProducer is a producer that can batch write multiple records to the specified stream.
 type BatchProducer struct {
-	client      *HStreamClient
-	streamName  string
-	enableBatch bool
-	batchSize   int
-	timeOut     time.Duration
-	isClosed    bool
-	appends     map[string]*appender
+	client     *HStreamClient
+	streamName string
+	batchSize  int
+	timeOut    time.Duration
+	isClosed   bool
+	appends    map[string]*appender
 
 	stop chan struct{}
 	lock sync.Mutex
@@ -126,14 +107,13 @@ type BatchProducer struct {
 
 func newBatchProducer(client *HStreamClient, streamName string, opts ...ProducerOpt) (*BatchProducer, error) {
 	batchProducer := &BatchProducer{
-		streamName:  streamName,
-		client:      client,
-		enableBatch: false,
-		batchSize:   1,
-		timeOut:     DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT,
-		appends:     make(map[string]*appender),
-		isClosed:    false,
-		stop:        make(chan struct{}),
+		streamName: streamName,
+		client:     client,
+		batchSize:  1,
+		timeOut:    DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT,
+		appends:    make(map[string]*appender),
+		isClosed:   false,
+		stop:       make(chan struct{}),
 	}
 
 	for _, opt := range opts {
@@ -148,10 +128,10 @@ func newBatchProducer(client *HStreamClient, streamName string, opts ...Producer
 }
 
 // EnableBatch set the batchSize-trigger for BatchProducer, batchSize must greater than 0
+// FIXME： rename this method
 func EnableBatch(batchSize int) ProducerOpt {
 	return func(batchProducer *BatchProducer) {
 		p := batchProducer
-		p.enableBatch = true
 		p.batchSize = batchSize
 	}
 }
@@ -161,7 +141,7 @@ func EnableBatch(batchSize int) ProducerOpt {
 func TimeOut(timeOut int) ProducerOpt {
 	return func(batchProducer *BatchProducer) {
 		var trigger time.Duration
-		if timeOut < 0 {
+		if timeOut <= 0 {
 			trigger = math.MaxUint32 * time.Second
 		} else {
 			trigger = time.Duration(timeOut) * time.Millisecond
@@ -240,6 +220,7 @@ func (a *appender) Close() {
 }
 
 func (a *appender) fetchBatchData() []*appendEntry {
+	// FIXME: consider reuse timer ???
 	timer := time.NewTimer(a.timeOut)
 	defer func() {
 		timer.Stop()
@@ -314,12 +295,12 @@ func sendAppend(hsClient *HStreamClient, targetStream, targetKey string, records
 	size := len(records)
 	rids := res.Resp.(*hstreampb.AppendResponse).GetRecordIds()
 	for i := 0; i < size; i++ {
-		records[i].res.setResponse(rids[i])
+		records[i].res.setResponse(rids[i], nil)
 	}
 }
 
 func (a *appender) resetBuffer() {
-	for i := 0; i < len(a.buffer); i += 1 {
+	for i := 0; i < len(a.buffer); i++ {
 		a.buffer[i] = nil
 	}
 	a.buffer = a.buffer[:0]
@@ -339,6 +320,6 @@ func buildAppendEntry(streamName, key string, record *HStreamRecord) *appendEntr
 
 func handleBatchAppendError(err error, records []*appendEntry) {
 	for _, record := range records {
-		record.res.setError(err)
+		record.res.setResponse(nil, err)
 	}
 }
