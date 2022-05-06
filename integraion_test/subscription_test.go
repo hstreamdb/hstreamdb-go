@@ -109,17 +109,17 @@ func (s *testSubscriptionSuite) TestFetch() {
 	}()
 	s.NoError(err)
 
-	producer, err := s.client.NewBatchProducer(streamName, hstream.EnableBatch(2))
+	producer, err := s.client.NewBatchProducer(streamName, hstream.EnableBatch(5))
 	s.NoError(err)
 
-	res := make([]hstream.AppendResult, 0, 10)
-	for i := 0; i < 10; i++ {
+	res := make([]hstream.AppendResult, 0, 100)
+	for i := 0; i < 100; i++ {
 		rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
 		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
 
-	rids := make([]hstream.RecordId, 0, 10)
+	rids := make([]hstream.RecordId, 0, 100)
 	for _, r := range res {
 		resp, err := r.Ready()
 		s.NoError(err)
@@ -131,16 +131,15 @@ func (s *testSubscriptionSuite) TestFetch() {
 	defer consumer.Stop()
 
 	dataCh := consumer.StartFetch()
-	fetchRes := make([]hstream.RecordId, 0, 10)
+	fetchRes := make([]hstream.RecordId, 0, 100)
 	for res := range dataCh {
-		receivedRecords, err := res.GetResult()
-		s.NoError(err)
-		for _, record := range receivedRecords {
+		s.NoError(res.Err)
+		for _, record := range res.Result {
 			rid := record.GetRecordId()
 			fetchRes = append(fetchRes, rid)
+			record.Ack()
 		}
-		res.Ack()
-		if len(fetchRes) == 10 {
+		if len(fetchRes) == 100 {
 			break
 		}
 	}
