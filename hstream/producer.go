@@ -1,6 +1,7 @@
 package hstream
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"sync"
@@ -14,7 +15,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT = 10 * time.Second
+const (
+	DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT = 10 * time.Second
+	DEFAULT_MAX_BATCHRECORDS_SIZE       = 1024 * 1024 // 1MB
+)
 
 type appendEntry struct {
 	key        string
@@ -59,7 +63,9 @@ func (r *rpcAppendRes) Ready() (RecordId, error) {
 // Ready().
 func (r *rpcAppendRes) setResponse(res interface{}, err error) {
 	defer close(r.ready)
-	r.resp = RecordIdFromPb(res.(*hstreampb.RecordId))
+	if res != nil {
+		r.resp = RecordIdFromPb(res.(*hstreampb.RecordId))
+	}
 	r.err = err
 }
 
@@ -94,12 +100,15 @@ type ProducerOpt func(producer *BatchProducer)
 
 // BatchProducer is a producer that can batch write multiple records to the specified stream.
 type BatchProducer struct {
-	client     *HStreamClient
-	streamName string
-	batchSize  int
-	timeOut    time.Duration
-	isClosed   bool
-	appends    map[string]*appender
+	client        *HStreamClient
+	streamName    string
+	batchSize     int
+	maxBatchBytes uint64
+	timeOut       time.Duration
+	isClosed      bool
+	appends       map[string]*appender
+
+	controller *flowController
 
 	stop chan struct{}
 	lock sync.Mutex
@@ -107,13 +116,15 @@ type BatchProducer struct {
 
 func newBatchProducer(client *HStreamClient, streamName string, opts ...ProducerOpt) (*BatchProducer, error) {
 	batchProducer := &BatchProducer{
-		streamName: streamName,
-		client:     client,
-		batchSize:  1,
-		timeOut:    DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT,
-		appends:    make(map[string]*appender),
-		isClosed:   false,
-		stop:       make(chan struct{}),
+		streamName:    streamName,
+		client:        client,
+		batchSize:     1,
+		maxBatchBytes: DEFAULT_MAX_BATCHRECORDS_SIZE,
+		timeOut:       DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT,
+		appends:       make(map[string]*appender),
+		isClosed:      false,
+		stop:          make(chan struct{}),
+		controller:    nil,
 	}
 
 	for _, opt := range opts {
@@ -124,15 +135,21 @@ func newBatchProducer(client *HStreamClient, streamName string, opts ...Producer
 		return nil, errors.New("batch size must be greater than 0")
 	}
 
+	if batchProducer.controller != nil && batchProducer.controller.outStandingBytes < batchProducer.maxBatchBytes {
+		return nil, errors.New(fmt.Sprintf(
+			"maxBatchBytes(%d) must less than and equal to controller's outStandingBytes(%d)",
+			batchProducer.maxBatchBytes, batchProducer.controller.outStandingBytes))
+	}
+
 	return batchProducer, nil
 }
 
-// EnableBatch set the batchSize-trigger for BatchProducer, batchSize must greater than 0
-// FIXME： rename this method
-func EnableBatch(batchSize int) ProducerOpt {
+// WithBatch set the batchSize-trigger for BatchProducer, batchSize must greater than 0
+func WithBatch(batchSize int, maxBytes uint64) ProducerOpt {
 	return func(batchProducer *BatchProducer) {
 		p := batchProducer
 		p.batchSize = batchSize
+		p.maxBatchBytes = maxBytes
 	}
 }
 
@@ -147,6 +164,18 @@ func TimeOut(timeOut int) ProducerOpt {
 			trigger = time.Duration(timeOut) * time.Millisecond
 		}
 		batchProducer.timeOut = trigger
+	}
+}
+
+// WithFlowControl set the flow control for BatchProducer. The maxBytes parameter
+// indicates the maximum number of bytes of data that have not been appended successfully,
+// including all data that has been sent to the server and all data that has not been sent to the server.
+// maxBytes == 0 will disable the flow control.
+func WithFlowControl(maxBytes uint64) ProducerOpt {
+	return func(batchProducer *BatchProducer) {
+		if maxBytes > 0 {
+			batchProducer.controller = newFlowController(maxBytes)
+		}
 	}
 }
 
@@ -171,7 +200,7 @@ func (p *BatchProducer) Append(record *HStreamRecord) AppendResult {
 	p.lock.Lock()
 	appender, ok := p.appends[appenderId]
 	if !ok {
-		appender = newAppender(p.client, p.streamName, key, p.batchSize, p.timeOut, p.stop)
+		appender = newAppender(p.client, p.streamName, key, p.batchSize, p.maxBatchBytes, p.timeOut, p.stop, p.controller)
 		p.appends[appenderId] = appender
 		go appender.batchAppendLoop()
 	}
@@ -187,26 +216,32 @@ type appender struct {
 	targetKey      string
 	timeOut        time.Duration
 	batchSize      int
+	maxRecordSize  uint64
 	buffer         []*appendEntry
 	lastSendServer string
 	// isClosed == 1 means closed
 	isClosed int32
 
+	controller *flowController
+
 	dataCh chan *appendEntry
 	stop   chan struct{}
 }
 
-func newAppender(client *HStreamClient, stream, key string, size int, timeout time.Duration, stopCh chan struct{}) *appender {
+func newAppender(client *HStreamClient, stream, key string, batchSize int, maxRecordSize uint64,
+	timeout time.Duration, stopCh chan struct{}, controller *flowController) *appender {
 	return &appender{
-		client:       client,
-		targetStream: stream,
-		targetKey:    key,
-		timeOut:      timeout,
-		batchSize:    size,
-		buffer:       make([]*appendEntry, 0, size),
-		dataCh:       make(chan *appendEntry, size),
-		stop:         stopCh,
-		isClosed:     0,
+		client:        client,
+		targetStream:  stream,
+		targetKey:     key,
+		timeOut:       timeout,
+		batchSize:     batchSize,
+		maxRecordSize: maxRecordSize,
+		buffer:        make([]*appendEntry, 0, batchSize),
+		dataCh:        make(chan *appendEntry, batchSize),
+		stop:          stopCh,
+		isClosed:      0,
+		controller:    controller,
 	}
 }
 
@@ -219,35 +254,37 @@ func (a *appender) Close() {
 	close(a.dataCh)
 }
 
-func (a *appender) fetchBatchData() []*appendEntry {
+func (a *appender) fetchBatchData() ([]*appendEntry, uint64) {
 	// FIXME: consider reuse timer ???
 	timer := time.NewTimer(a.timeOut)
 	defer func() {
 		timer.Stop()
 	}()
 	a.resetBuffer()
+	totalPayloadBytes := uint64(0)
 
 	for {
 		select {
 		case record := <-a.dataCh:
 			a.buffer = append(a.buffer, record)
-			if len(a.buffer) >= a.batchSize {
+			totalPayloadBytes += uint64(len(record.value.Payload))
+			if len(a.buffer) >= a.batchSize || totalPayloadBytes >= a.maxRecordSize {
 				timer.Stop()
 				res := make([]*appendEntry, a.batchSize)
 				copy(res, a.buffer)
-				return res
+				return res, totalPayloadBytes
 			}
 		case <-timer.C:
 			util.Logger().Debug("Timeout!!!!!!!", zap.String("length of buffer", strconv.Itoa(len(a.buffer))))
 			size := len(a.buffer)
 			if size == 0 {
-				return nil
+				return nil, 0
 			}
 			res := make([]*appendEntry, size)
 			copy(res, a.buffer)
-			return res
+			return res, totalPayloadBytes
 		case <-a.stop:
-			return nil
+			return nil, 0
 		}
 	}
 }
@@ -258,12 +295,31 @@ func (a *appender) batchAppendLoop() {
 			return
 		}
 
-		records := a.fetchBatchData()
+		records, payloadSize := a.fetchBatchData()
 		if len(records) == 0 {
 			continue
 		}
+
+		a.acquire(payloadSize)
 		sendAppend(a.client, a.targetStream, a.targetKey, records)
+		a.release(payloadSize)
 	}
+}
+
+func (a *appender) acquire(need uint64) {
+	if a.controller == nil {
+		return
+	}
+
+	a.controller.Acquire(need)
+}
+
+func (a *appender) release(size uint64) {
+	if a.controller == nil {
+		return
+	}
+
+	a.controller.Release(size)
 }
 
 func sendAppend(hsClient *HStreamClient, targetStream, targetKey string, records []*appendEntry) {

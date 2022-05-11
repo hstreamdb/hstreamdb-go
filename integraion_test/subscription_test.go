@@ -109,7 +109,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 	}()
 	s.NoError(err)
 
-	producer, err := s.client.NewBatchProducer(streamName, hstream.EnableBatch(5))
+	producer, err := s.client.NewBatchProducer(streamName, hstream.WithBatch(5, 1000000))
 	s.NoError(err)
 
 	res := make([]hstream.AppendResult, 0, 100)

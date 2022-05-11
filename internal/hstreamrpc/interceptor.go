@@ -6,6 +6,7 @@ import (
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"reflect"
 )
 
 func UnaryClientInterceptor(ctx context.Context, method string, req, reply interface{},
@@ -25,12 +26,16 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 		commFields = append(commFields, zap.String("req", req.(*hstreampb.Stream).String()))
 	case *hstreampb.Subscription:
 		commFields = append(commFields, zap.String("req", req.(*hstreampb.Subscription).String()))
+	case *hstreampb.AppendRequest:
+		commFields = append(commFields, zap.String("req", req.(*hstreampb.AppendRequest).String()))
 	default:
 	}
 	util.Logger().Debug("unaryRPC", commFields...)
 
-	if err := invoker(ctx, method, req, reply, cc, opts...); err != nil {
-		util.Logger().Debug("unaryRPC error", zap.String("method", method), zap.String("target", cc.Target()),
+	ctx1 := context.Background()
+	if err := invoker(ctx1, method, req, reply, cc, opts...); err != nil {
+		strReq := reflect.ValueOf(req).MethodByName("String").Call([]reflect.Value{})[0].String()
+		util.Logger().Debug("unaryRPC error", zap.String("method", method), zap.String("req", strReq), zap.String("target", cc.Target()),
 			zap.Error(err))
 		return err
 	}

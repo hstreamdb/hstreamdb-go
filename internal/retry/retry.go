@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	BACKOFF_BASE_TIME = 500 * time.Millisecond
+	BACKOFF_BASE_TIME = 1 * time.Second
 	MAX_RETRIES       = 3
 )
 

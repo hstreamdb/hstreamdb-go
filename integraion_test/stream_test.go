@@ -111,12 +111,12 @@ func (s *testStreamSuite) TestBatchAppend() {
 	}()
 	s.NoError(err)
 
-	producer, err := s.client.NewBatchProducer(streamName, hstream.EnableBatch(10))
+	producer, err := s.client.NewBatchProducer(streamName, hstream.WithBatch(10, 150), hstream.WithFlowControl(400))
 	s.NoError(err)
 	defer producer.Stop()
 
-	res := make([]hstream.AppendResult, 0, 100)
-	for i := 0; i < 100; i++ {
+	res := make([]hstream.AppendResult, 0, 1000)
+	for i := 0; i < 1000; i++ {
 		rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
 		r := producer.Append(rawRecord)
 		res = append(res, r)
@@ -138,19 +138,19 @@ func (s *testStreamSuite) TestBatchAppendMultiKey() {
 	}()
 	s.NoError(err)
 
-	producer, err := s.client.NewBatchProducer(streamName, hstream.EnableBatch(10))
+	producer, err := s.client.NewBatchProducer(streamName, hstream.WithBatch(10, 250))
 	defer producer.Stop()
 	s.NoError(err)
 
-	keys := []string{"test-key1", "test-key2", "test-key3"}
+	keys := []string{"test-key1", "test-key2", "test-key3", "test-key4", "test-key5", "test-key6", "test-key7", "test-key8", "test-key9"}
 	rids := sync.Map{}
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(9)
 	for _, key := range keys {
 		go func(key string) {
-			result := make([]hstream.AppendResult, 0, 100)
-			for i := 0; i < 100; i++ {
-				rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
+			result := make([]hstream.AppendResult, 0, 1000)
+			for i := 0; i < 1000; i++ {
+				rawRecord, _ := hstream.NewHStreamRawRecord(key, []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
 				r := producer.Append(rawRecord)
 				result = append(result, r)
 			}
@@ -161,12 +161,12 @@ func (s *testStreamSuite) TestBatchAppendMultiKey() {
 
 	wg.Wait()
 	rids.Range(func(key, value interface{}) bool {
-		k := key.(string)
+		//k := key.(string)
 		res := value.([]hstream.AppendResult)
-		for idx, r := range res {
-			resp, err := r.Ready()
+		for _, r := range res {
+			_, err := r.Ready()
 			s.NoError(err)
-			s.T().Log(fmt.Sprintf("[key: %s]: record[%d]=%s", k, idx, resp.String()))
+			//s.T().Log(fmt.Sprintf("[key: %s]: record[%d]=%s", k, idx, resp.String()))
 		}
 		return true
 	})
