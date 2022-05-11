@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"strconv"
 	"strings"
 	"sync"
@@ -157,7 +159,8 @@ func (c *RPCClient) createConnection(address string) (*grpc.ClientConn, error) {
 func (c *RPCClient) connect(address string) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), DIALTIMEOUT)
 	conn, err := grpc.DialContext(ctx, address, grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithUnaryInterceptor(hstreamrpc.UnaryClientInterceptor) /*, grpc.WithBlock()*/)
+		grpc.WithUnaryInterceptor(
+			grpc_middleware.ChainUnaryClient(hstreamrpc.UnaryClientInterceptor, grpc_retry.UnaryClientInterceptor())))
 	if err != nil {
 		cancel()
 		return nil, errors.Wrapf(err, "failed to dial %s", address)
