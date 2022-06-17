@@ -258,7 +258,9 @@ func (a *appender) fetchBatchData() ([]*appendEntry, uint64) {
 	// FIXME: consider reuse timer ???
 	timer := time.NewTimer(a.timeOut)
 	defer func() {
-		timer.Stop()
+		if !timer.Stop() {
+			<-timer.C
+		}
 	}()
 	a.resetBuffer()
 	totalPayloadBytes := uint64(0)
@@ -269,8 +271,8 @@ func (a *appender) fetchBatchData() ([]*appendEntry, uint64) {
 			a.buffer = append(a.buffer, record)
 			totalPayloadBytes += uint64(len(record.value.Payload))
 			if len(a.buffer) >= a.batchSize || totalPayloadBytes >= a.maxRecordSize {
-				timer.Stop()
-				res := make([]*appendEntry, a.batchSize)
+				size := util.Min(a.batchSize, len(a.buffer))
+				res := make([]*appendEntry, size)
 				copy(res, a.buffer)
 				return res, totalPayloadBytes
 			}

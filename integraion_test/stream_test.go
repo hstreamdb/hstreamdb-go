@@ -78,7 +78,36 @@ func (s *testStreamSuite) TestListStreams() {
 	}
 }
 
-func (s *testStreamSuite) TestAppend() {
+func (s *testStreamSuite) TestAppendHRecord() {
+	rand.Seed(time.Now().UnixNano())
+	streamName := "test_stream_" + strconv.Itoa(rand.Int())
+	err := s.client.CreateStream(streamName)
+	defer func() {
+		_ = s.client.DeleteStream(streamName)
+	}()
+	s.NoError(err)
+
+	producer := s.client.NewProducer(streamName)
+	res := make([]hstream.AppendResult, 0, 100)
+	payload := map[string]interface{}{
+		"key":       "key-1",
+		"value":     []byte(fmt.Sprintf("test-value-%s-%d", "key-1", 1)),
+		"timestamp": time.Now().UnixNano(),
+	}
+	hRecord, _ := hstream.NewHStreamHRecord("key-1", payload)
+	for i := 0; i < 100; i++ {
+		r := producer.Append(hRecord)
+		res = append(res, r)
+	}
+
+	for _, r := range res {
+		resp, err := r.Ready()
+		s.NoError(err)
+		s.T().Log(resp.String())
+	}
+}
+
+func (s *testStreamSuite) TestAppendRawRecord() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
 	err := s.client.CreateStream(streamName)
@@ -129,7 +158,55 @@ func (s *testStreamSuite) TestBatchAppend() {
 	}
 }
 
-func (s *testStreamSuite) TestBatchAppendMultiKey() {
+func (s *testStreamSuite) TestBatchAppendHRecordWithMultiKey() {
+	rand.Seed(time.Now().UnixNano())
+	streamName := "test_stream_" + strconv.Itoa(rand.Int())
+	err := s.client.CreateStream(streamName)
+	defer func() {
+		_ = s.client.DeleteStream(streamName)
+	}()
+	s.NoError(err)
+
+	producer, err := s.client.NewBatchProducer(streamName, hstream.WithBatch(10, 1000))
+	defer producer.Stop()
+	s.NoError(err)
+
+	keys := []string{"test-key1", "test-key2", "test-key3", "test-key4", "test-key5", "test-key6", "test-key7", "test-key8", "test-key9"}
+	rids := sync.Map{}
+	wg := sync.WaitGroup{}
+	wg.Add(9)
+	for _, key := range keys {
+		go func(key string) {
+			result := make([]hstream.AppendResult, 0, 1000)
+			for i := 0; i < 1000; i++ {
+				payload := map[string]interface{}{
+					"key":       key,
+					"value":     []byte(fmt.Sprintf("test-value-%s-%d", key, i)),
+					"timestamp": time.Now().UnixNano(),
+				}
+				hRecord, _ := hstream.NewHStreamHRecord(key, payload)
+				r := producer.Append(hRecord)
+				result = append(result, r)
+			}
+			rids.Store(key, result)
+			wg.Done()
+		}(key)
+	}
+
+	wg.Wait()
+	rids.Range(func(key, value interface{}) bool {
+		//k := key.(string)
+		res := value.([]hstream.AppendResult)
+		for _, r := range res {
+			_, err := r.Ready()
+			s.NoError(err)
+			//s.T().Log(fmt.Sprintf("[key: %s]: record[%d]=%s", k, idx, resp.String()))
+		}
+		return true
+	})
+}
+
+func (s *testStreamSuite) TestBatchAppendRawRecordWithMultiKey() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
 	err := s.client.CreateStream(streamName)
