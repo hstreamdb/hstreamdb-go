@@ -21,8 +21,7 @@ const (
 )
 
 func init() {
-	logger, _ := InitLogger(DEBUG)
-	ReplaceGlobals(logger)
+	SetLogLevel(DEBUG)
 }
 
 // InitLogger initializes a zap logger.
@@ -48,6 +47,11 @@ func Logger() *zap.Logger {
 // ReplaceGlobals replaces the global Logger. It's safe for concurrent use.
 func ReplaceGlobals(logger *zap.Logger) {
 	globalLogger.Store(logger)
+}
+
+func SetLogLevel(level LogLevel) {
+	logger, _ := InitLogger(level)
+	ReplaceGlobals(logger)
 }
 
 // Sync flushes any buffered log entries.

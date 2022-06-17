@@ -44,7 +44,7 @@ func (s *testSubscriptionSuite) TestCreateSubscription() {
 	subId := "test_subscription_" + strconv.Itoa(rand.Int())
 	err = s.client.CreateSubscription(subId, streamName, 5)
 	defer func() {
-		_ = s.client.DeleteSubscription(subId)
+		_ = s.client.DeleteSubscription(subId, true)
 	}()
 	s.NoError(err)
 }
@@ -61,7 +61,7 @@ func (s *testSubscriptionSuite) TestDeleteSubscription() {
 	subId := "test_subscription_" + strconv.Itoa(rand.Int())
 	err = s.client.CreateSubscription(subId, streamName, 5)
 	s.NoError(err)
-	err = s.client.DeleteSubscription(subId)
+	err = s.client.DeleteSubscription(subId, true)
 	s.NoError(err)
 }
 
@@ -83,7 +83,7 @@ func (s *testSubscriptionSuite) TestListSubscription() {
 	}
 	defer func() {
 		for _, subId := range subs {
-			_ = s.client.DeleteSubscription(subId)
+			_ = s.client.DeleteSubscription(subId, true)
 		}
 	}()
 
@@ -105,7 +105,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 	subId := "test_subscription_" + strconv.Itoa(rand.Int())
 	err = s.client.CreateSubscription(subId, streamName, 5)
 	defer func() {
-		_ = s.client.DeleteSubscription(subId)
+		_ = s.client.DeleteSubscription(subId, true)
 	}()
 	s.NoError(err)
 
