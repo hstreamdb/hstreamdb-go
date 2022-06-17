@@ -78,7 +78,7 @@ func (c *HStreamClient) createSubscription(sub *hstreampb.Subscription) error {
 }
 
 // DeleteSubscription will send a DeleteSubscriptionRPC to the server and wait for response.
-func (c *HStreamClient) DeleteSubscription(subId string) error {
+func (c *HStreamClient) DeleteSubscription(subId string, force bool) error {
 	address, err := c.lookUpSubscription(subId)
 	if err != nil {
 		return err
@@ -88,6 +88,7 @@ func (c *HStreamClient) DeleteSubscription(subId string) error {
 		Type: hstreamrpc.DeleteSubscription,
 		Req: &hstreampb.DeleteSubscriptionRequest{
 			SubscriptionId: subId,
+			Force:          force,
 		},
 	}
 

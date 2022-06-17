@@ -128,7 +128,7 @@ func NewHStreamHRecord(key string, payload map[string]interface{}) (*HStreamReco
 	return &HStreamRecord{
 		Header: RecordHeader{
 			Key:        key,
-			Flag:       RAWRECORD,
+			Flag:       HRECORD,
 			Attributes: make(map[string]string),
 		},
 		Key:     key,
