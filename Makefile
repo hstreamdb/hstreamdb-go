@@ -1,9 +1,16 @@
-PROTO_COMPILE = protoc
+.DEFAULT_GOAL := all
+
+PROTO_COMPILE ?= protoc
 PROTO_PATH = ./proto/gen-proto
 
 gen:
 	mkdir -p $(PROTO_PATH) && \
-		$(PROTO_COMPILE) --proto_path=./proto proto/*.proto --go_out=plugins=grpc:$(PROTO_PATH)
+		$(PROTO_COMPILE) --proto_path=./proto proto/HStreamApi.proto \
+			--go_out=$(PROTO_PATH) \
+			--go-grpc_out=$(PROTO_PATH)
+
+all: gen
+	go build ./...
 
 clean:
 	rm -rf $(PROTO_PATH)
@@ -11,5 +18,4 @@ clean:
 fmt:
 	gofmt -s -w -l `find . -name '*.go' -type f ! -path '*/gen-proto/*' -print`
 
-.PHONY: clean fmt gen
-
+.PHONY: clean fmt all gen

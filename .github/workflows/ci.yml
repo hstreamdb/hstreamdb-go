@@ -1,0 +1,38 @@
+name: check fmt and build
+
+on:
+  push:
+    branches: [main]
+
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-go-fmt-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: ["1.17", "1.18"]
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: install protobuf
+        run: |
+          sudo apt-get -y install protobuf-compiler libprotobuf-dev
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+      - name: check go fmt
+        run: |
+          make fmt && \
+          git diff-index --exit-code HEAD
+
+      - name: check go build
+        run: |
+          make all
