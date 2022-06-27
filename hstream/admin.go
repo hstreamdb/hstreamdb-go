@@ -11,6 +11,21 @@ type Stats struct {
 
 // AdminRequestToRandomServer send admin command request to a random server in the cluster
 func (c *HStreamClient) AdminRequestToRandomServer(cmd string) (string, error) {
+	f := func(req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
+		return c.reqToRandomServer(req)
+	}
+	return c.adminRequestInternal(cmd, f)
+}
+
+// AdminRequest send admin command request to a specified server at given address
+func (c *HStreamClient) AdminRequest(addr, cmd string) (string, error) {
+	f := func(req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
+		return c.sendRequest(addr, req)
+	}
+	return c.adminRequestInternal(cmd, f)
+}
+
+func (c *HStreamClient) adminRequestInternal(cmd string, f func(request *hstreamrpc.Request) (*hstreamrpc.Response, error)) (string, error) {
 	var (
 		resp *hstreamrpc.Response
 		err  error
@@ -23,7 +38,7 @@ func (c *HStreamClient) AdminRequestToRandomServer(cmd string) (string, error) {
 		},
 	}
 
-	if resp, err = c.reqToRandomServer(req); err != nil {
+	if resp, err = f(req); err != nil {
 		return "", err
 	}
 	response := resp.Resp.(*hstreampb.AdminCommandResponse).GetResult()
