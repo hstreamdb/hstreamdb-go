@@ -9,23 +9,21 @@ type Stats struct {
 	Values []float64
 }
 
-// AdminRequestToRandomServer send admin command request to a random server in the cluster
-func (c *HStreamClient) AdminRequestToRandomServer(cmd string) (string, error) {
-	f := func(req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
-		return c.reqToRandomServer(req)
+// AdminRequest send admin command request to a random server in the cluster
+func (c *HStreamClient) AdminRequest(cmd string) (string, error) {
+	addr, err := c.randomServer()
+	if err != nil {
+		return "", err
 	}
-	return c.adminRequestInternal(cmd, f)
+	return c.adminRequestInternal(addr, cmd)
 }
 
-// AdminRequest send admin command request to a specified server at given address
-func (c *HStreamClient) AdminRequest(addr, cmd string) (string, error) {
-	f := func(req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
-		return c.sendRequest(addr, req)
-	}
-	return c.adminRequestInternal(cmd, f)
+// AdminRequestToServer send admin command request to a specified server at given address
+func (c *HStreamClient) AdminRequestToServer(addr, cmd string) (string, error) {
+	return c.adminRequestInternal(addr, cmd)
 }
 
-func (c *HStreamClient) adminRequestInternal(cmd string, f func(request *hstreamrpc.Request) (*hstreamrpc.Response, error)) (string, error) {
+func (c *HStreamClient) adminRequestInternal(addr, cmd string) (string, error) {
 	var (
 		resp *hstreamrpc.Response
 		err  error
@@ -38,7 +36,7 @@ func (c *HStreamClient) adminRequestInternal(cmd string, f func(request *hstream
 		},
 	}
 
-	if resp, err = f(req); err != nil {
+	if resp, err = c.sendRequest(addr, req); err != nil {
 		return "", err
 	}
 	response := resp.Resp.(*hstreampb.AdminCommandResponse).GetResult()
