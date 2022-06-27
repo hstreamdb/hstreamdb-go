@@ -9,7 +9,8 @@ type Stats struct {
 	Values []float64
 }
 
-func (c *HStreamClient) AdminRequest(cmd string) (string, error) {
+// AdminRequestToRandomServer send admin command request to a random server in the cluster
+func (c *HStreamClient) AdminRequestToRandomServer(cmd string) (string, error) {
 	var (
 		resp *hstreamrpc.Response
 		err  error
