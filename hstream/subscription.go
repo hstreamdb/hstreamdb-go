@@ -164,8 +164,8 @@ func (c *HStreamClient) lookup(subId string, key string) (string, error) {
 	var req *hstreamrpc.Request
 	if len(key) != 0 {
 		req = &hstreamrpc.Request{
-			Type: hstreamrpc.LookupSubscriptionWithOrderingKey,
-			Req: &hstreampb.LookupSubscriptionWithOrderingKeyRequest{
+			Type: hstreamrpc.LookupSubscription,
+			Req: &hstreampb.LookupSubscriptionRequest{
 				SubscriptionId: subId,
 				// FIXME:
 				//OrderingKey:    key,
@@ -186,7 +186,7 @@ func (c *HStreamClient) lookup(subId string, key string) (string, error) {
 	}
 	var node *hstreampb.ServerNode
 	if len(key) != 0 {
-		node = resp.Resp.(*hstreampb.LookupSubscriptionWithOrderingKeyResponse).GetServerNode()
+		node = resp.Resp.(*hstreampb.LookupSubscriptionResponse).GetServerNode()
 		util.Logger().Debug("LookupSubscriptionWithOrderingKeyResponse", zap.String("subId", subId), zap.String("key", key), zap.String("node", node.String()))
 	} else {
 		node = resp.Resp.(*hstreampb.LookupSubscriptionResponse).GetServerNode()
