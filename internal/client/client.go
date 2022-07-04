@@ -78,6 +78,8 @@ func (c *RPCClient) SendRequest(ctx context.Context, address string, req *hstrea
 }
 
 func (c *RPCClient) Close() {
+	c.Lock()
+	defer c.Unlock()
 	util.Logger().Info("closing hstream client")
 	for address, conn := range c.connections {
 		util.Logger().Info("closing connection to server", zap.String("address", address))
@@ -85,6 +87,7 @@ func (c *RPCClient) Close() {
 			util.Logger().Error("close connection failed", zap.String("address", address), zap.Error(err))
 		}
 	}
+	c.closed = 0
 }
 
 // isClosed check if the client is closed
@@ -101,18 +104,12 @@ func NewRPCClient(address string) (*RPCClient, error) {
 	}
 
 	for _, addr := range cli.serverInfo {
-		conn, err := cli.connect(addr)
-		if err != nil {
-			util.Logger().Warn("Failed to connect to hstreamdb server", zap.String("address", addr), zap.Error(err))
-			continue
-		}
-
 		info, err := cli.requestServerInfo(addr)
 		if err != nil {
+			util.Logger().Warn("Failed to request serverInfo", zap.String("address", addr), zap.Error(err))
 			continue
 		}
 		cli.serverInfo = info
-		cli.connections[addr] = conn
 		util.Logger().Info("InitConnection success, connect to server", zap.String("address", addr))
 		return cli, nil
 	}
