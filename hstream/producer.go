@@ -2,6 +2,8 @@ package hstream
 
 import (
 	"fmt"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"math"
 	"strconv"
 	"sync"
@@ -87,8 +89,24 @@ func (p *Producer) Append(record *HStreamRecord) AppendResult {
 	key := record.Key
 	entry := buildAppendEntry(p.streamName, key, record)
 
-	sendAppend(p.client, p.streamName, record.Key, []*appendEntry{entry})
+	p.sendAppend(p.streamName, record.Key, []*appendEntry{entry})
 	return entry.res
+}
+
+func (p *Producer) sendAppend(targetStream, targetKey string, records []*appendEntry) {
+	req := createAppendReq(records, targetStream)
+	server, err := p.client.LookUpStream(targetStream, targetKey)
+	if err != nil {
+		handleBatchAppendError(err, records)
+		return
+	}
+
+	res, err := p.client.sendRequest(server, req)
+	if err != nil {
+		handleBatchAppendError(err, records)
+		return
+	}
+	setAppendResponse(res, records)
 }
 
 func (p *Producer) Stop() {
@@ -303,7 +321,7 @@ func (a *appender) batchAppendLoop() {
 		}
 
 		a.acquire(payloadSize)
-		sendAppend(a.client, a.targetStream, a.targetKey, records)
+		a.sendAppend(records, payloadSize, false)
 		a.release(payloadSize)
 	}
 }
@@ -324,32 +342,51 @@ func (a *appender) release(size uint64) {
 	a.controller.Release(size)
 }
 
-func sendAppend(hsClient *HStreamClient, targetStream, targetKey string, records []*appendEntry) {
+func (a *appender) sendAppend(records []*appendEntry, payloadSize uint64, forceLookUp bool) {
+	req := createAppendReq(records, a.targetStream)
+	
+	var server string
+	var err error
+	if !forceLookUp && len(a.lastSendServer) != 0 {
+		server = a.lastSendServer
+	} else {
+		util.Logger().Debug("cache miss", zap.String("stream", a.targetStream), zap.String("key", a.targetKey), zap.String("lastServer", a.lastSendServer))
+		if server, err = a.client.LookUpStream(a.targetStream, a.targetKey); err != nil {
+			handleBatchAppendError(err, records)
+			return
+		}
+	}
+
+	res, err := a.client.sendRequest(server, req)
+	if err != nil {
+		if !forceLookUp && status.Code(err) == codes.FailedPrecondition {
+			util.Logger().Debug("cache miss because err", zap.String("stream", a.targetStream), zap.String("key", a.targetKey))
+			a.sendAppend(records, payloadSize, true)
+			return
+		}
+		handleBatchAppendError(err, records)
+		return
+	}
+	a.lastSendServer = server
+
+	setAppendResponse(res, records)
+}
+
+func createAppendReq(records []*appendEntry, targetStream string) *hstreamrpc.Request {
 	reqRecords := make([]*hstreampb.HStreamRecord, 0, len(records))
 	for _, record := range records {
 		reqRecords = append(reqRecords, record.value)
 	}
-	req := &hstreamrpc.Request{
+	return &hstreamrpc.Request{
 		Type: hstreamrpc.Append,
 		Req: &hstreampb.AppendRequest{
 			StreamName: targetStream,
 			Records:    reqRecords,
 		},
 	}
+}
 
-	// FIXME: add cache to avoid lookup zk every time
-	server, err := hsClient.LookUpStream(targetStream, targetKey)
-	if err != nil {
-		handleBatchAppendError(err, records)
-		return
-	}
-
-	res, err := hsClient.sendRequest(server, req)
-	if err != nil {
-		handleBatchAppendError(err, records)
-		return
-	}
-
+func setAppendResponse(res *hstreamrpc.Response, records []*appendEntry) {
 	size := len(records)
 	rids := res.Resp.(*hstreampb.AppendResponse).GetRecordIds()
 	for i := 0; i < size; i++ {
