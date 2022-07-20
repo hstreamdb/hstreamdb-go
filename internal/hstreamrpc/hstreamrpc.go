@@ -57,10 +57,6 @@ func (t ReqType) String() string {
 		return "DeleteSubscription"
 	case LookupSubscription:
 		return "LookupSubscription"
-	case LookupSubscriptionWithOrderingKey:
-		return "LookupSubscriptionWithOrderingKey"
-	case WatchSubscription:
-		return "WatchSubscription"
 	case StreamingFetch:
 		return "StreamingFetch"
 	case DescribeCluster:
@@ -111,10 +107,6 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 		resp.Resp, err = cli.DeleteSubscription(ctx, req.Req.(*hstreampb.DeleteSubscriptionRequest))
 	case LookupSubscription:
 		resp.Resp, err = cli.LookupSubscription(ctx, req.Req.(*hstreampb.LookupSubscriptionRequest))
-	case LookupSubscriptionWithOrderingKey:
-		resp.Resp, err = cli.LookupSubscriptionWithOrderingKey(ctx, req.Req.(*hstreampb.LookupSubscriptionWithOrderingKeyRequest))
-	case WatchSubscription:
-		resp.Resp, err = cli.WatchSubscription(ctx, req.Req.(*hstreampb.WatchSubscriptionRequest))
 	case StreamingFetch:
 		resp.Resp, err = cli.StreamingFetch(ctx, retry.FetchRetry()...)
 	case DescribeCluster:

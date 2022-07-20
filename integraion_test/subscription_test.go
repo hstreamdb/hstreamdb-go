@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream"
+	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/suite"
 )
@@ -25,6 +26,7 @@ func (s *testSubscriptionSuite) SetupTest() {
 	var err error
 	s.serverUrl = test_util.ServerUrl
 	s.client, err = hstream.NewHStreamClient(s.serverUrl)
+	util.SetLogLevel(util.DEBUG)
 	s.NoError(err)
 }
 

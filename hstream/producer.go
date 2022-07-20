@@ -344,7 +344,7 @@ func (a *appender) release(size uint64) {
 
 func (a *appender) sendAppend(records []*appendEntry, payloadSize uint64, forceLookUp bool) {
 	req := createAppendReq(records, a.targetStream)
-	
+
 	var server string
 	var err error
 	if !forceLookUp && len(a.lastSendServer) != 0 {

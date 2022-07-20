@@ -82,7 +82,7 @@ type RecordId struct {
 }
 
 func (r RecordId) String() string {
-	return fmt.Sprintf("[BatchId: %d, BatchIndex: %d, ShardId: %d]", r.BatchId, r.BatchIndex, r.ShardId)
+	return fmt.Sprintf("%d-%d-%d", r.BatchId, r.BatchIndex, r.ShardId)
 }
 
 // CompareRecordId compare two record id a and b, return
