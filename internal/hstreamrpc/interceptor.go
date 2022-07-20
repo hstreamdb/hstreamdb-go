@@ -20,8 +20,6 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 		commFields = append(commFields, zap.String("req", req.(*hstreampb.LookupStreamRequest).String()))
 	case *hstreampb.LookupSubscriptionRequest:
 		commFields = append(commFields, zap.String("req", req.(*hstreampb.LookupSubscriptionRequest).String()))
-	case *hstreampb.LookupSubscriptionWithOrderingKeyRequest:
-		commFields = append(commFields, zap.String("req", req.(*hstreampb.LookupSubscriptionWithOrderingKeyRequest).String()))
 	case *hstreampb.Stream:
 		commFields = append(commFields, zap.String("req", req.(*hstreampb.Stream).String()))
 	case *hstreampb.Subscription:

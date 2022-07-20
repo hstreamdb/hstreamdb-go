@@ -148,49 +148,23 @@ func (c *HStreamClient) NewConsumer(consumerName, subId string) *Consumer {
 }
 
 func (c *HStreamClient) lookUpSubscription(subId string) (string, error) {
-	return c.lookup(subId, "")
-}
-
-func (c *HStreamClient) lookUpSubscriptionWithKey(subId string, key string) (string, error) {
-	return c.lookup(subId, key)
-}
-
-func (c *HStreamClient) lookup(subId string, key string) (string, error) {
 	address, err := c.randomServer()
 	if err != nil {
 		return "", err
 	}
 
-	var req *hstreamrpc.Request
-	if len(key) != 0 {
-		req = &hstreamrpc.Request{
-			Type: hstreamrpc.LookupSubscriptionWithOrderingKey,
-			Req: &hstreampb.LookupSubscriptionWithOrderingKeyRequest{
-				SubscriptionId: subId,
-				// FIXME:
-				//OrderingKey:    key,
-			},
-		}
-	} else {
-		req = &hstreamrpc.Request{
-			Type: hstreamrpc.LookupSubscription,
-			Req: &hstreampb.LookupSubscriptionRequest{
-				SubscriptionId: subId,
-			},
-		}
+	req := &hstreamrpc.Request{
+		Type: hstreamrpc.LookupSubscription,
+		Req: &hstreampb.LookupSubscriptionRequest{
+			SubscriptionId: subId,
+		},
 	}
 
 	var resp *hstreamrpc.Response
 	if resp, err = c.sendRequest(address, req); err != nil {
 		return "", err
 	}
-	var node *hstreampb.ServerNode
-	if len(key) != 0 {
-		node = resp.Resp.(*hstreampb.LookupSubscriptionWithOrderingKeyResponse).GetServerNode()
-		util.Logger().Debug("LookupSubscriptionWithOrderingKeyResponse", zap.String("subId", subId), zap.String("key", key), zap.String("node", node.String()))
-	} else {
-		node = resp.Resp.(*hstreampb.LookupSubscriptionResponse).GetServerNode()
-		util.Logger().Debug("LookupSubscriptionResponse", zap.String("subId", subId), zap.String("node", node.String()))
-	}
+	node := resp.Resp.(*hstreampb.LookupSubscriptionResponse).GetServerNode()
+	util.Logger().Debug("LookupSubscriptionResponse", zap.String("subId", subId), zap.String("node", node.String()))
 	return fmt.Sprintf("%s:%d", node.GetHost(), node.GetPort()), nil
 }

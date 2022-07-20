@@ -21,11 +21,11 @@ const (
 )
 
 func init() {
-	SetLogLevel(DEBUG)
+	SetLogLevel(INFO)
 }
 
 // InitLogger initializes a zap logger.
-func InitLogger(level LogLevel, opts ...zap.Option) (*zap.Logger, error) {
+func initLogger(level LogLevel, opts ...zap.Option) (*zap.Logger, error) {
 	stdOut, _, err := zap.Open([]string{"stdout"}...)
 	if err != nil {
 		return nil, err
@@ -50,7 +50,7 @@ func ReplaceGlobals(logger *zap.Logger) {
 }
 
 func SetLogLevel(level LogLevel) {
-	logger, _ := InitLogger(level)
+	logger, _ := initLogger(level)
 	ReplaceGlobals(logger)
 }
 
