@@ -5,7 +5,7 @@ PROTO_PATH = ./proto/gen-proto
 
 gen:
 	mkdir -p $(PROTO_PATH) && \
-		$(PROTO_COMPILE) --proto_path=./proto proto/HStreamApi.proto \
+		$(PROTO_COMPILE) --proto_path=./proto proto/hstream.proto \
 			--go_out=$(PROTO_PATH) \
 			--go-grpc_out=$(PROTO_PATH)
 
