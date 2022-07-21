@@ -249,7 +249,7 @@ func main() {
 			rid := record.GetRecordId()
 			log.Printf("receive recordId: %s\n", rid.String())
 			fetchRes = append(fetchRes, rid)
-      record.Ack()
+			record.Ack()
 		}
 		if len(fetchRes) == 100 {
 			break
