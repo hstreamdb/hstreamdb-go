@@ -240,13 +240,12 @@ func main() {
 	dataCh := consumer.StartFetch()
 	fetchRes := make([]hstream.RecordId, 0, 100)
 	for res := range dataCh {
-		receivedRecords, err := res.GetResult()
-		if err != nil {
-			log.Printf("Fetch error: %s\n", err)
+		if res.Err != nil {
+			log.Printf("Fetch error: %s\n", res.Err)
 			continue
 		}
 
-		for _, record := range receivedRecords {
+		for _, record := range res.Result {
 			rid := record.GetRecordId()
 			log.Printf("receive recordId: %s\n", rid.String())
 			fetchRes = append(fetchRes, rid)
@@ -258,6 +257,3 @@ func main() {
 	}
 }
 ```
-
-
-
