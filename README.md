@@ -160,7 +160,7 @@ import (
 
 func main() {
 	//------------- connect to server and create related stream first --------------------
-	producer, err := client.NewBatchProducer("testStream", hstream.EnableBatch(10))
+	producer, err := client.NewBatchProducer("testStream", hstream.WithBatch(10, 150))
 	defer producer.Stop()
 
 	keys := []string{"test-key1", "test-key2", "test-key3"}
