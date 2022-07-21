@@ -54,8 +54,8 @@ import (
 func main() {
 	// -------------- connect to server first --------------------
 	// Create a new stream with 1 replica, set the data retention to 1800s.
-	err := client.CreateStream("testStream", 
-             hstream.WithReplicationFactor(1), 
+	err := client.CreateStream("testStream",
+             hstream.WithReplicationFactor(1),
              hstream.EnableBacklog(1800))
 	if err != nil {
 		log.Fatalf("Creating stream error: %s", err)
@@ -87,7 +87,7 @@ func main() {
 	//------------- connect to server and create related stream first --------------------
 	producer := client.NewProducer("testStream")
 	defer producer.Stop()
-    
+
 	res := make([]hstream.AppendResult, 0, 100)
 	for i := 0; i < 100; i++ {
 		rawRecord, err := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
@@ -122,7 +122,7 @@ func main() {
 	//------------- connect to server and create related stream first --------------------
 	producer := client.NewProducer("testStream")
 	defer producer.Stop()
-    
+
 	payload := map[string]interface{}{
 		"key1": "value1",
 		"key2": 123,
@@ -240,24 +240,20 @@ func main() {
 	dataCh := consumer.StartFetch()
 	fetchRes := make([]hstream.RecordId, 0, 100)
 	for res := range dataCh {
-		receivedRecords, err := res.GetResult()
-		if err != nil {
-			log.Printf("Fetch error: %s\n", err)
+		if res.Err != nil {
+			log.Printf("Fetch error: %s\n", res.Err)
 			continue
 		}
 
-		for _, record := range receivedRecords {
+		for _, record := range res.Result {
 			rid := record.GetRecordId()
 			log.Printf("receive recordId: %s\n", rid.String())
 			fetchRes = append(fetchRes, rid)
+			record.Ack()
 		}
-		res.Ack()
 		if len(fetchRes) == 100 {
 			break
 		}
 	}
 }
 ```
-
-
-
