@@ -135,3 +135,29 @@ func StatsFromPb(stats *hstreampb.StatsDoubleVals) (*Stats, error) {
 		Values: stats.GetVals(),
 	}, nil
 }
+
+func SubscriptionOffsetToPb(offset SubscriptionOffset) hstreampb.SpecialOffset {
+	var res hstreampb.SpecialOffset
+	switch offset {
+	case EARLIEST:
+		res = hstreampb.SpecialOffset_EARLIEST
+	case LATEST:
+		res = hstreampb.SpecialOffset_LATEST
+	default:
+		util.Logger().Fatal("Unknown offset")
+	}
+	return res
+}
+
+func SubscriptionOffsetFromPb(offset hstreampb.SpecialOffset) SubscriptionOffset {
+	var res SubscriptionOffset
+	switch offset {
+	case hstreampb.SpecialOffset_EARLIEST:
+		res = EARLIEST
+	case hstreampb.SpecialOffset_LATEST:
+		res = LATEST
+	default:
+		util.Logger().Fatal("Unknown offset")
+	}
+	return res
+}

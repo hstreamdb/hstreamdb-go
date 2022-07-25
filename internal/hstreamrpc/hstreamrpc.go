@@ -23,8 +23,6 @@ const (
 	CheckSubscriptionExist
 	DeleteSubscription
 	LookupSubscription
-	LookupSubscriptionWithOrderingKey
-	WatchSubscription
 	StreamingFetch
 
 	DescribeCluster ReqType = 512 + iota

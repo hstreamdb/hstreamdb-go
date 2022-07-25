@@ -16,6 +16,7 @@ type Stream struct {
 	ReplicationFactor uint32
 	// backlog duration == 0 means forbidden backlog
 	BacklogDuration uint32
+	ShardCount      uint32
 }
 
 func (s *Stream) StreamToPb() *hstreampb.Stream {
@@ -23,6 +24,7 @@ func (s *Stream) StreamToPb() *hstreampb.Stream {
 		StreamName:        s.StreamName,
 		ReplicationFactor: s.ReplicationFactor,
 		BacklogDuration:   s.BacklogDuration,
+		ShardCount:        s.ShardCount,
 	}
 }
 
@@ -31,6 +33,7 @@ func StreamFromPb(pb *hstreampb.Stream) Stream {
 		StreamName:        pb.StreamName,
 		ReplicationFactor: pb.ReplicationFactor,
 		BacklogDuration:   pb.BacklogDuration,
+		ShardCount:        pb.ShardCount,
 	}
 }
 
@@ -51,13 +54,21 @@ func EnableBacklog(backlogDuration uint32) StreamOpts {
 	}
 }
 
+// WithShardCount sets the number of shards in the stream.
+func WithShardCount(shardCnt uint32) StreamOpts {
+	return func(stream *Stream) {
+		stream.ShardCount = shardCnt
+	}
+}
+
 // defaultStream create a default stream with 3 replicas,
 // the backlog duration is set to 7 days
-func defaultStream(name string) *Stream {
-	return &Stream{
+func defaultStream(name string) Stream {
+	return Stream{
 		StreamName:        name,
 		ReplicationFactor: 3,
 		BacklogDuration:   7 * 24 * 60 * 60,
+		ShardCount:        1,
 	}
 }
 
@@ -65,10 +76,13 @@ func defaultStream(name string) *Stream {
 func (c *HStreamClient) CreateStream(streamName string, opts ...StreamOpts) error {
 	stream := defaultStream(streamName)
 	for _, opt := range opts {
-		opt(stream)
+		opt(&stream)
 	}
 	if stream.ReplicationFactor < 1 {
-		return errors.New("replication factor must be greater than 0")
+		return errors.New("replication factor must be greater than or equal to 0")
+	}
+	if stream.ShardCount <= 0 {
+		return errors.New("shard count must be greater than 0")
 	}
 
 	address, err := c.randomServer()

@@ -9,11 +9,19 @@ import (
 	"go.uber.org/zap"
 )
 
+type SubscriptionOffset uint8
+
+const (
+	EARLIEST SubscriptionOffset = iota + 1
+	LATEST
+)
+
 type Subscription struct {
 	SubscriptionId    string
 	StreamName        string
 	AckTimeoutSeconds int32
 	MaxUnackedRecords int32
+	Offset            SubscriptionOffset
 }
 
 func (s *Subscription) SubscriptionToPb() *hstreampb.Subscription {
@@ -22,6 +30,7 @@ func (s *Subscription) SubscriptionToPb() *hstreampb.Subscription {
 		StreamName:        s.StreamName,
 		AckTimeoutSeconds: s.AckTimeoutSeconds,
 		MaxUnackedRecords: s.MaxUnackedRecords,
+		Offset:            SubscriptionOffsetToPb(s.Offset),
 	}
 }
 
@@ -31,38 +40,59 @@ func SubscriptionFromPb(pb *hstreampb.Subscription) Subscription {
 		StreamName:        pb.StreamName,
 		AckTimeoutSeconds: pb.AckTimeoutSeconds,
 		MaxUnackedRecords: pb.MaxUnackedRecords,
+		Offset:            SubscriptionOffsetFromPb(pb.Offset),
 	}
 }
 
-// CreateSubscription will create a subscription with MaxUnackedRecords set to 10000 by default
-func (c *HStreamClient) CreateSubscription(subId string, streamName string, ackTimeout int32) error {
-	sub := &hstreampb.Subscription{
+// SubscriptionOpts is the option for the Subscription.
+type SubscriptionOpts func(sub *Subscription)
+
+// WithAckTimeout sets the ack timeout in seconds.
+func WithAckTimeout(timeout int32) SubscriptionOpts {
+	return func(sub *Subscription) {
+		sub.AckTimeoutSeconds = timeout
+	}
+}
+
+// WithMaxUnackedRecords sets the max unacked records. If the number of records that have not
+// been acked reaches the set value, the server will stop pushing more records to the client.
+func WithMaxUnackedRecords(cnt int32) SubscriptionOpts {
+	return func(sub *Subscription) {
+		sub.MaxUnackedRecords = cnt
+	}
+}
+
+// WithOffset sets the subscription offset.
+func WithOffset(offset SubscriptionOffset) SubscriptionOpts {
+	return func(sub *Subscription) {
+		sub.Offset = offset
+	}
+}
+
+func defaultSub(subId string, streamName string) Subscription {
+	return Subscription{
 		SubscriptionId:    subId,
 		StreamName:        streamName,
-		AckTimeoutSeconds: ackTimeout,
+		AckTimeoutSeconds: 600,
 		MaxUnackedRecords: 10000,
+		Offset:            LATEST,
 	}
-	return c.createSubscription(sub)
 }
 
-// CreateSubscriptionWithMaxUnack will create a subscription with the specified MaxUnackedRecords
-func (c *HStreamClient) CreateSubscriptionWithMaxUnack(
-	subId string, streamName string, ackTimeout int32, maxUnack int32) error {
-	if maxUnack < 0 {
-		return errors.New("maxUnack must be greater than or equal to 0")
+// CreateSubscription will send a CreateSubscriptionRPC to HStreamDB server and wait for response.
+func (c *HStreamClient) CreateSubscription(subId string, streamName string, opts ...SubscriptionOpts) error {
+	sub := defaultSub(subId, streamName)
+	for _, opt := range opts {
+		opt(&sub)
 	}
 
-	sub := &hstreampb.Subscription{
-		SubscriptionId:    subId,
-		StreamName:        streamName,
-		AckTimeoutSeconds: ackTimeout,
-		MaxUnackedRecords: maxUnack,
+	if sub.AckTimeoutSeconds <= 0 {
+		return errors.New("ack timeout should greater than 0")
 	}
-	return c.createSubscription(sub)
-}
+	if sub.MaxUnackedRecords <= 0 {
+		return errors.New("max unacked records should greater than 0.")
+	}
 
-// createSubscription will send a CreateSubscriptionRPC to the server and wait for response.
-func (c *HStreamClient) createSubscription(sub *hstreampb.Subscription) error {
 	address, err := c.lookUpSubscription(sub.SubscriptionId)
 	if err != nil {
 		return err
@@ -70,9 +100,8 @@ func (c *HStreamClient) createSubscription(sub *hstreampb.Subscription) error {
 
 	req := &hstreamrpc.Request{
 		Type: hstreamrpc.CreateSubscription,
-		Req:  sub,
+		Req:  sub.SubscriptionToPb(),
 	}
-
 	_, err = c.sendRequest(address, req)
 	return err
 }
