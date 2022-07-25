@@ -44,7 +44,8 @@ func (s *testSubscriptionSuite) TestCreateSubscription() {
 	s.NoError(err)
 
 	subId := "test_subscription_" + strconv.Itoa(rand.Int())
-	err = s.client.CreateSubscription(subId, streamName, 5)
+	err = s.client.CreateSubscription(subId, streamName, hstream.WithAckTimeout(10),
+		hstream.WithOffset(hstream.EARLIEST), hstream.WithMaxUnackedRecords(100))
 	defer func() {
 		_ = s.client.DeleteSubscription(subId, true)
 	}()
@@ -61,7 +62,7 @@ func (s *testSubscriptionSuite) TestDeleteSubscription() {
 	s.NoError(err)
 
 	subId := "test_subscription_" + strconv.Itoa(rand.Int())
-	err = s.client.CreateSubscription(subId, streamName, 5)
+	err = s.client.CreateSubscription(subId, streamName)
 	s.NoError(err)
 	err = s.client.DeleteSubscription(subId, true)
 	s.NoError(err)
@@ -79,7 +80,7 @@ func (s *testSubscriptionSuite) TestListSubscription() {
 	subs := make([]string, 0, 5)
 	for i := 0; i < 5; i++ {
 		subId := "test_subscription_" + strconv.Itoa(rand.Int())
-		err := s.client.CreateSubscription(subId, streamName, 5)
+		err = s.client.CreateSubscription(subId, streamName)
 		s.NoError(err)
 		subs = append(subs, subId)
 	}
@@ -105,7 +106,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 	}()
 	s.NoError(err)
 	subId := "test_subscription_" + strconv.Itoa(rand.Int())
-	err = s.client.CreateSubscription(subId, streamName, 5)
+	err = s.client.CreateSubscription(subId, streamName)
 	defer func() {
 		_ = s.client.DeleteSubscription(subId, true)
 	}()
@@ -114,14 +115,14 @@ func (s *testSubscriptionSuite) TestFetch() {
 	producer, err := s.client.NewBatchProducer(streamName, hstream.WithBatch(5, 1000000))
 	s.NoError(err)
 
-	res := make([]hstream.AppendResult, 0, 100)
-	for i := 0; i < 100; i++ {
+	res := make([]hstream.AppendResult, 0, 10)
+	for i := 0; i < 10; i++ {
 		rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
 		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
 
-	rids := make([]hstream.RecordId, 0, 100)
+	rids := make([]hstream.RecordId, 0, 10)
 	for _, r := range res {
 		resp, err := r.Ready()
 		s.NoError(err)
@@ -133,7 +134,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 	defer consumer.Stop()
 
 	dataCh := consumer.StartFetch()
-	fetchRes := make([]hstream.RecordId, 0, 100)
+	fetchRes := make([]hstream.RecordId, 0, 10)
 	for res := range dataCh {
 		s.NoError(res.Err)
 		for _, record := range res.Result {
@@ -141,7 +142,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 			fetchRes = append(fetchRes, rid)
 			record.Ack()
 		}
-		if len(fetchRes) == 100 {
+		if len(fetchRes) == 10 {
 			break
 		}
 	}
