@@ -32,6 +32,10 @@ const (
 
 	PerStreamStats ReqType = 2048 + iota
 	PerStreamStatsAll
+
+	CreateShardReader ReqType = 3048 + iota
+	ReadShard
+	DeleteShardReader
 )
 
 func (t ReqType) String() string {
@@ -68,6 +72,12 @@ func (t ReqType) String() string {
 		return "PerStreamStats"
 	case PerStreamStatsAll:
 		return "PerStreamStatsAll"
+	case CreateShardReader:
+		return "CreateShardReader"
+	case ReadShard:
+		return "ReadShard"
+	case DeleteShardReader:
+		return "DeleteShardReader"
 	}
 	return "Unknown"
 }
@@ -120,6 +130,12 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 		resp.Resp, err = cli.PerStreamTimeSeriesStats(ctx, req.Req.(*hstreampb.PerStreamTimeSeriesStatsRequest))
 	case PerStreamStatsAll:
 		resp.Resp, err = cli.PerStreamTimeSeriesStatsAll(ctx, req.Req.(*hstreampb.PerStreamTimeSeriesStatsAllRequest))
+	case CreateShardReader:
+		resp.Resp, err = cli.CreateShardReader(ctx, req.Req.(*hstreampb.CreateShardReaderRequest))
+	case ReadShard:
+		resp.Resp, err = cli.ReadShard(ctx, req.Req.(*hstreampb.ReadShardRequest))
+	case DeleteShardReader:
+		resp.Resp, err = cli.DeleteShardReader(ctx, req.Req.(*hstreampb.DeleteShardReaderRequest))
 	}
 	return resp, err
 }
