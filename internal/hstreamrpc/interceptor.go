@@ -16,8 +16,8 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 		zap.String("target", cc.Target()),
 	}
 	switch req.(type) {
-	case *hstreampb.LookupStreamRequest:
-		commFields = append(commFields, zap.String("req", req.(*hstreampb.LookupStreamRequest).String()))
+	case *hstreampb.LookupShardRequest:
+		commFields = append(commFields, zap.String("req", req.(*hstreampb.LookupShardRequest).String()))
 	case *hstreampb.LookupSubscriptionRequest:
 		commFields = append(commFields, zap.String("req", req.(*hstreampb.LookupSubscriptionRequest).String()))
 	case *hstreampb.Stream:
@@ -25,7 +25,7 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 	case *hstreampb.Subscription:
 		commFields = append(commFields, zap.String("req", req.(*hstreampb.Subscription).String()))
 	case *hstreampb.AppendRequest:
-		commFields = append(commFields, zap.String("req", req.(*hstreampb.AppendRequest).String()))
+		//commFields = append(commFields, zap.String("req", req.(*hstreampb.AppendRequest).String()))
 	default:
 	}
 	util.Logger().Debug("unaryRPC", commFields...)

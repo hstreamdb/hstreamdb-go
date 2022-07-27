@@ -15,7 +15,8 @@ const (
 	CreateStream ReqType = 1 + iota
 	DeleteStream
 	ListStreams
-	LookupStream
+	LookupShard
+	ListShards
 	Append
 
 	CreateSubscription ReqType = 256 + iota
@@ -41,8 +42,10 @@ func (t ReqType) String() string {
 		return "DeleteStream"
 	case ListStreams:
 		return "ListStreams"
-	case LookupStream:
-		return "LookupStream"
+	case LookupShard:
+		return "LookupShard"
+	case ListShards:
+		return "ListShards"
 	case Append:
 		return "Append"
 	case CreateSubscription:
@@ -91,8 +94,10 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 		resp.Resp, err = cli.DeleteStream(ctx, req.Req.(*hstreampb.DeleteStreamRequest))
 	case ListStreams:
 		resp.Resp, err = cli.ListStreams(ctx, req.Req.(*hstreampb.ListStreamsRequest))
-	case LookupStream:
-		resp.Resp, err = cli.LookupStream(ctx, req.Req.(*hstreampb.LookupStreamRequest))
+	case LookupShard:
+		resp.Resp, err = cli.LookupShard(ctx, req.Req.(*hstreampb.LookupShardRequest))
+	case ListShards:
+		resp.Resp, err = cli.ListShards(ctx, req.Req.(*hstreampb.ListShardsRequest))
 	case Append:
 		resp.Resp, err = cli.Append(ctx, req.Req.(*hstreampb.AppendRequest), retry.AppendRetry()...)
 	case CreateSubscription:

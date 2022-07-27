@@ -29,11 +29,15 @@ type HStreamApiClient interface {
 	CreateStream(ctx context.Context, in *Stream, opts ...grpc.CallOption) (*Stream, error)
 	DeleteStream(ctx context.Context, in *DeleteStreamRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListStreams(ctx context.Context, in *ListStreamsRequest, opts ...grpc.CallOption) (*ListStreamsResponse, error)
-	LookupStream(ctx context.Context, in *LookupStreamRequest, opts ...grpc.CallOption) (*LookupStreamResponse, error)
+	LookupShard(ctx context.Context, in *LookupShardRequest, opts ...grpc.CallOption) (*LookupShardResponse, error)
 	Append(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error)
 	Append0(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error)
 	// Shard APIs
 	ListShards(ctx context.Context, in *ListShardsRequest, opts ...grpc.CallOption) (*ListShardsResponse, error)
+	CreateShardReader(ctx context.Context, in *CreateShardReaderRequest, opts ...grpc.CallOption) (*CreateShardReaderResponse, error)
+	LookupShardReader(ctx context.Context, in *LookupShardReaderRequest, opts ...grpc.CallOption) (*LookupShardReaderResponse, error)
+	ReadShard(ctx context.Context, in *ReadShardRequest, opts ...grpc.CallOption) (*ReadShardResponse, error)
+	DeleteShardReader(ctx context.Context, in *DeleteShardReaderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Subscribe APIs
 	CreateSubscription(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*Subscription, error)
 	ListSubscriptions(ctx context.Context, in *ListSubscriptionsRequest, opts ...grpc.CallOption) (*ListSubscriptionsResponse, error)
@@ -74,7 +78,6 @@ type HStreamApiClient interface {
 	// FIXME: (store)node related apis
 	ListNodes(ctx context.Context, in *ListNodesRequest, opts ...grpc.CallOption) (*ListNodesResponse, error)
 	GetNode(ctx context.Context, in *GetNodeRequest, opts ...grpc.CallOption) (*Node, error)
-	ReadShard(ctx context.Context, in *ReadShardRequest, opts ...grpc.CallOption) (*ReadShardResponse, error)
 }
 
 type hStreamApiClient struct {
@@ -121,9 +124,9 @@ func (c *hStreamApiClient) ListStreams(ctx context.Context, in *ListStreamsReque
 	return out, nil
 }
 
-func (c *hStreamApiClient) LookupStream(ctx context.Context, in *LookupStreamRequest, opts ...grpc.CallOption) (*LookupStreamResponse, error) {
-	out := new(LookupStreamResponse)
-	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/LookupStream", in, out, opts...)
+func (c *hStreamApiClient) LookupShard(ctx context.Context, in *LookupShardRequest, opts ...grpc.CallOption) (*LookupShardResponse, error) {
+	out := new(LookupShardResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/LookupShard", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -151,6 +154,42 @@ func (c *hStreamApiClient) Append0(ctx context.Context, in *AppendRequest, opts 
 func (c *hStreamApiClient) ListShards(ctx context.Context, in *ListShardsRequest, opts ...grpc.CallOption) (*ListShardsResponse, error) {
 	out := new(ListShardsResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ListShards", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) CreateShardReader(ctx context.Context, in *CreateShardReaderRequest, opts ...grpc.CallOption) (*CreateShardReaderResponse, error) {
+	out := new(CreateShardReaderResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/CreateShardReader", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) LookupShardReader(ctx context.Context, in *LookupShardReaderRequest, opts ...grpc.CallOption) (*LookupShardReaderResponse, error) {
+	out := new(LookupShardReaderResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/LookupShardReader", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) ReadShard(ctx context.Context, in *ReadShardRequest, opts ...grpc.CallOption) (*ReadShardResponse, error) {
+	out := new(ReadShardResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ReadShard", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) DeleteShardReader(ctx context.Context, in *DeleteShardReaderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/DeleteShardReader", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -454,15 +493,6 @@ func (c *hStreamApiClient) GetNode(ctx context.Context, in *GetNodeRequest, opts
 	return out, nil
 }
 
-func (c *hStreamApiClient) ReadShard(ctx context.Context, in *ReadShardRequest, opts ...grpc.CallOption) (*ReadShardResponse, error) {
-	out := new(ReadShardResponse)
-	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ReadShard", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // HStreamApiServer is the server API for HStreamApi service.
 // All implementations must embed UnimplementedHStreamApiServer
 // for forward compatibility
@@ -472,11 +502,15 @@ type HStreamApiServer interface {
 	CreateStream(context.Context, *Stream) (*Stream, error)
 	DeleteStream(context.Context, *DeleteStreamRequest) (*emptypb.Empty, error)
 	ListStreams(context.Context, *ListStreamsRequest) (*ListStreamsResponse, error)
-	LookupStream(context.Context, *LookupStreamRequest) (*LookupStreamResponse, error)
+	LookupShard(context.Context, *LookupShardRequest) (*LookupShardResponse, error)
 	Append(context.Context, *AppendRequest) (*AppendResponse, error)
 	Append0(context.Context, *AppendRequest) (*AppendResponse, error)
 	// Shard APIs
 	ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error)
+	CreateShardReader(context.Context, *CreateShardReaderRequest) (*CreateShardReaderResponse, error)
+	LookupShardReader(context.Context, *LookupShardReaderRequest) (*LookupShardReaderResponse, error)
+	ReadShard(context.Context, *ReadShardRequest) (*ReadShardResponse, error)
+	DeleteShardReader(context.Context, *DeleteShardReaderRequest) (*emptypb.Empty, error)
 	// Subscribe APIs
 	CreateSubscription(context.Context, *Subscription) (*Subscription, error)
 	ListSubscriptions(context.Context, *ListSubscriptionsRequest) (*ListSubscriptionsResponse, error)
@@ -517,7 +551,6 @@ type HStreamApiServer interface {
 	// FIXME: (store)node related apis
 	ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error)
 	GetNode(context.Context, *GetNodeRequest) (*Node, error)
-	ReadShard(context.Context, *ReadShardRequest) (*ReadShardResponse, error)
 	mustEmbedUnimplementedHStreamApiServer()
 }
 
@@ -537,8 +570,8 @@ func (UnimplementedHStreamApiServer) DeleteStream(context.Context, *DeleteStream
 func (UnimplementedHStreamApiServer) ListStreams(context.Context, *ListStreamsRequest) (*ListStreamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListStreams not implemented")
 }
-func (UnimplementedHStreamApiServer) LookupStream(context.Context, *LookupStreamRequest) (*LookupStreamResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LookupStream not implemented")
+func (UnimplementedHStreamApiServer) LookupShard(context.Context, *LookupShardRequest) (*LookupShardResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LookupShard not implemented")
 }
 func (UnimplementedHStreamApiServer) Append(context.Context, *AppendRequest) (*AppendResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Append not implemented")
@@ -548,6 +581,18 @@ func (UnimplementedHStreamApiServer) Append0(context.Context, *AppendRequest) (*
 }
 func (UnimplementedHStreamApiServer) ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListShards not implemented")
+}
+func (UnimplementedHStreamApiServer) CreateShardReader(context.Context, *CreateShardReaderRequest) (*CreateShardReaderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateShardReader not implemented")
+}
+func (UnimplementedHStreamApiServer) LookupShardReader(context.Context, *LookupShardReaderRequest) (*LookupShardReaderResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LookupShardReader not implemented")
+}
+func (UnimplementedHStreamApiServer) ReadShard(context.Context, *ReadShardRequest) (*ReadShardResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReadShard not implemented")
+}
+func (UnimplementedHStreamApiServer) DeleteShardReader(context.Context, *DeleteShardReaderRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteShardReader not implemented")
 }
 func (UnimplementedHStreamApiServer) CreateSubscription(context.Context, *Subscription) (*Subscription, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSubscription not implemented")
@@ -632,9 +677,6 @@ func (UnimplementedHStreamApiServer) ListNodes(context.Context, *ListNodesReques
 }
 func (UnimplementedHStreamApiServer) GetNode(context.Context, *GetNodeRequest) (*Node, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNode not implemented")
-}
-func (UnimplementedHStreamApiServer) ReadShard(context.Context, *ReadShardRequest) (*ReadShardResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ReadShard not implemented")
 }
 func (UnimplementedHStreamApiServer) mustEmbedUnimplementedHStreamApiServer() {}
 
@@ -721,20 +763,20 @@ func _HStreamApi_ListStreams_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _HStreamApi_LookupStream_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LookupStreamRequest)
+func _HStreamApi_LookupShard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LookupShardRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(HStreamApiServer).LookupStream(ctx, in)
+		return srv.(HStreamApiServer).LookupShard(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/hstream.server.HStreamApi/LookupStream",
+		FullMethod: "/hstream.server.HStreamApi/LookupShard",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HStreamApiServer).LookupStream(ctx, req.(*LookupStreamRequest))
+		return srv.(HStreamApiServer).LookupShard(ctx, req.(*LookupShardRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -789,6 +831,78 @@ func _HStreamApi_ListShards_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HStreamApiServer).ListShards(ctx, req.(*ListShardsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_CreateShardReader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateShardReaderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).CreateShardReader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/CreateShardReader",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).CreateShardReader(ctx, req.(*CreateShardReaderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_LookupShardReader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LookupShardReaderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).LookupShardReader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/LookupShardReader",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).LookupShardReader(ctx, req.(*LookupShardReaderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_ReadShard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReadShardRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).ReadShard(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/ReadShard",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).ReadShard(ctx, req.(*ReadShardRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_DeleteShardReader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteShardReaderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).DeleteShardReader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/DeleteShardReader",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).DeleteShardReader(ctx, req.(*DeleteShardReaderRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1308,24 +1422,6 @@ func _HStreamApi_GetNode_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
-func _HStreamApi_ReadShard_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ReadShardRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(HStreamApiServer).ReadShard(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/hstream.server.HStreamApi/ReadShard",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HStreamApiServer).ReadShard(ctx, req.(*ReadShardRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // HStreamApi_ServiceDesc is the grpc.ServiceDesc for HStreamApi service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1350,8 +1446,8 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_ListStreams_Handler,
 		},
 		{
-			MethodName: "LookupStream",
-			Handler:    _HStreamApi_LookupStream_Handler,
+			MethodName: "LookupShard",
+			Handler:    _HStreamApi_LookupShard_Handler,
 		},
 		{
 			MethodName: "Append",
@@ -1364,6 +1460,22 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ListShards",
 			Handler:    _HStreamApi_ListShards_Handler,
+		},
+		{
+			MethodName: "CreateShardReader",
+			Handler:    _HStreamApi_CreateShardReader_Handler,
+		},
+		{
+			MethodName: "LookupShardReader",
+			Handler:    _HStreamApi_LookupShardReader_Handler,
+		},
+		{
+			MethodName: "ReadShard",
+			Handler:    _HStreamApi_ReadShard_Handler,
+		},
+		{
+			MethodName: "DeleteShardReader",
+			Handler:    _HStreamApi_DeleteShardReader_Handler,
 		},
 		{
 			MethodName: "CreateSubscription",
@@ -1468,10 +1580,6 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetNode",
 			Handler:    _HStreamApi_GetNode_Handler,
-		},
-		{
-			MethodName: "ReadShard",
-			Handler:    _HStreamApi_ReadShard_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{
