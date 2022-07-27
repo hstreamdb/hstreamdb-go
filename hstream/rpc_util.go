@@ -161,3 +161,21 @@ func SubscriptionOffsetFromPb(offset hstreampb.SpecialOffset) SubscriptionOffset
 	}
 	return res
 }
+
+func ShardFromPb(pbShard *hstreampb.Shard) Shard {
+	return Shard{
+		ShardId:      pbShard.GetShardId(),
+		StreamName:   pbShard.GetStreamName(),
+		StartHashKey: pbShard.GetStartHashRangeKey(),
+		EndHashKey:   pbShard.GetEndHashRangeKey(),
+	}
+}
+
+func ShardToPb(shard *Shard) *hstreampb.Shard {
+	return &hstreampb.Shard{
+		ShardId:           shard.ShardId,
+		StreamName:        shard.StreamName,
+		StartHashRangeKey: shard.StartHashKey,
+		EndHashRangeKey:   shard.EndHashKey,
+	}
+}

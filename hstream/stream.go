@@ -142,7 +142,7 @@ func (c *HStreamClient) ListStreams() ([]Stream, error) {
 }
 
 // NewProducer will create a Producer for specific stream
-func (c *HStreamClient) NewProducer(streamName string) *Producer {
+func (c *HStreamClient) NewProducer(streamName string) (*Producer, error) {
 	return newProducer(c, streamName)
 }
 
@@ -151,18 +151,17 @@ func (c *HStreamClient) NewBatchProducer(streamName string, opts ...ProducerOpt)
 	return newBatchProducer(c, streamName, opts...)
 }
 
-// LookUpStream will send a LookUpStreamRPC to HStreamDB server and wait for response.
-func (c *HStreamClient) LookUpStream(streamName string, key string) (string, error) {
+// LookupShard will send a LookupShardRPC to HStreamDB server and wait for response.
+func (c *HStreamClient) LookupShard(shardId uint64) (string, error) {
 	address, err := c.randomServer()
 	if err != nil {
 		return "", err
 	}
 
 	req := &hstreamrpc.Request{
-		Type: hstreamrpc.LookupStream,
-		Req: &hstreampb.LookupStreamRequest{
-			StreamName:  streamName,
-			OrderingKey: key,
+		Type: hstreamrpc.LookupShard,
+		Req: &hstreampb.LookupShardRequest{
+			ShardId: shardId,
 		},
 	}
 
@@ -170,6 +169,6 @@ func (c *HStreamClient) LookUpStream(streamName string, key string) (string, err
 	if resp, err = c.sendRequest(address, req); err != nil {
 		return "", err
 	}
-	node := resp.Resp.(*hstreampb.LookupStreamResponse).GetServerNode()
+	node := resp.Resp.(*hstreampb.LookupShardResponse).GetServerNode()
 	return fmt.Sprintf("%s:%d", node.GetHost(), node.GetPort()), nil
 }

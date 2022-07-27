@@ -1,10 +1,12 @@
 package hstream
 
 import (
+	"crypto/md5"
 	"fmt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"math"
+	"math/big"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -71,17 +73,77 @@ func (r *rpcAppendRes) setResponse(res interface{}, err error) {
 	r.err = err
 }
 
+type shardInfoCache struct {
+	sync.RWMutex
+	shardMap   *ShardMap
+	serverInfo map[uint64]string
+}
+
+func newShardInfoCache(shards []Shard) *shardInfoCache {
+	mp := NewShardMap(DEFAULT_SHARDMAP_DEGREE)
+	for _, v := range shards {
+		mp.ReplaceOrInsert(&v)
+	}
+	mp.mp.Ascend(func(shard *Shard) bool {
+		return true
+	})
+	return &shardInfoCache{
+		shardMap:   mp,
+		serverInfo: make(map[uint64]string, len(shards)),
+	}
+}
+
+func (c *shardInfoCache) getServerInfo(client *HStreamClient, partitionKey string) (string, error) {
+	hashKey := calculateShardRangeKey(partitionKey)
+	c.RLock()
+	shard := c.shardMap.FindLessOrEqual(hashKey)
+	if shard == nil {
+		c.RUnlock()
+		return "", errors.New(fmt.Sprintf("Can't find shard for hashKey %s", hashKey))
+	}
+	info, ok := c.serverInfo[shard.ShardId]
+	if ok {
+		c.RUnlock()
+		return info, nil
+	}
+	c.RUnlock()
+
+	// cache miss, send LookupShard RPC to server
+	newInfo, err := client.LookupShard(shard.ShardId)
+	if err != nil {
+		return "", err
+	}
+	c.Lock()
+	c.serverInfo[shard.ShardId] = newInfo
+	c.Unlock()
+	return newInfo, nil
+}
+
+func (c *shardInfoCache) clear() {
+	c.Lock()
+	c.shardMap.Clear()
+	c.Unlock()
+}
+
 // Producer produce a single piece of data to the specified stream.
 type Producer struct {
 	client     *HStreamClient
 	streamName string
+	cache      *shardInfoCache
 }
 
-func newProducer(client *HStreamClient, streamName string) *Producer {
+func newProducer(client *HStreamClient, streamName string) (*Producer, error) {
+	shards, err := client.ListShards(streamName)
+	if err != nil {
+		return nil, err
+	}
+	util.Logger().Debug("list shards", zap.String("shards", fmt.Sprintf("%+v", shards)))
+	cache := newShardInfoCache(shards)
 	return &Producer{
 		client:     client,
 		streamName: streamName,
-	}
+		cache:      cache,
+	}, nil
 }
 
 // Append will write a single record to the specified stream. This is a synchronous method.
@@ -95,7 +157,7 @@ func (p *Producer) Append(record *HStreamRecord) AppendResult {
 
 func (p *Producer) sendAppend(targetStream, targetKey string, records []*appendEntry) {
 	req := createAppendReq(records, targetStream)
-	server, err := p.client.LookUpStream(targetStream, targetKey)
+	server, err := p.cache.getServerInfo(p.client, targetKey)
 	if err != nil {
 		handleBatchAppendError(err, records)
 		return
@@ -110,7 +172,8 @@ func (p *Producer) sendAppend(targetStream, targetKey string, records []*appendE
 }
 
 func (p *Producer) Stop() {
-
+	p.cache.clear()
+	p.cache = nil
 }
 
 // ProducerOpt is the option for the BatchProducer.
@@ -124,12 +187,13 @@ type BatchProducer struct {
 	maxBatchBytes uint64
 	timeOut       time.Duration
 	isClosed      bool
-	appends       map[string]*appender
+	appends       map[uint64]*appender
+	shardMap      *ShardMap
 
 	controller *flowController
 
 	stop chan struct{}
-	lock sync.Mutex
+	lock sync.RWMutex
 }
 
 func newBatchProducer(client *HStreamClient, streamName string, opts ...ProducerOpt) (*BatchProducer, error) {
@@ -139,7 +203,7 @@ func newBatchProducer(client *HStreamClient, streamName string, opts ...Producer
 		batchSize:     1,
 		maxBatchBytes: DEFAULT_MAX_BATCHRECORDS_SIZE,
 		timeOut:       DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT,
-		appends:       make(map[string]*appender),
+		appends:       make(map[uint64]*appender),
 		isClosed:      false,
 		stop:          make(chan struct{}),
 		controller:    nil,
@@ -158,6 +222,17 @@ func newBatchProducer(client *HStreamClient, streamName string, opts ...Producer
 			"maxBatchBytes(%d) must less than and equal to controller's outStandingBytes(%d)",
 			batchProducer.maxBatchBytes, batchProducer.controller.outStandingBytes))
 	}
+
+	shards, err := client.ListShards(streamName)
+	if err != nil {
+		return nil, err
+	}
+	mp := NewShardMap(DEFAULT_SHARDMAP_DEGREE)
+	for i := 0; i < len(shards); i += 1 {
+		mp.ReplaceOrInsert(&shards[i])
+	}
+	batchProducer.shardMap = mp
+	util.Logger().Debug(fmt.Sprintf("shardMap: %+v", batchProducer.shardMap.Ascend()))
 
 	return batchProducer, nil
 }
@@ -213,15 +288,34 @@ func (p *BatchProducer) Append(record *HStreamRecord) AppendResult {
 	key := record.Key
 	entry := buildAppendEntry(p.streamName, key, record)
 
-	// records are collected by key.
-	appenderId := record.GetType().String() + "-" + key
-	p.lock.Lock()
-	appender, ok := p.appends[appenderId]
-	if !ok {
-		appender = newAppender(p.client, p.streamName, key, p.batchSize, p.maxBatchBytes, p.timeOut, p.stop, p.controller)
-		p.appends[appenderId] = appender
-		go appender.batchAppendLoop()
+	// records are collected by shard.
+	hashKey := calculateShardRangeKey(key)
+	p.lock.RLock()
+	shard := p.shardMap.FindLessOrEqual(hashKey)
+	if shard == nil {
+		p.lock.RUnlock()
+		entry.res.err = errors.New(fmt.Sprintf("Can't find shard for hashKey %s", hashKey))
+		return entry.res
 	}
+
+	appender, ok := p.appends[shard.ShardId]
+	if ok {
+		p.lock.RUnlock()
+		appender.dataCh <- entry
+		return entry.res
+	}
+	p.lock.RUnlock()
+
+	p.lock.Lock()
+	if appender, ok = p.appends[shard.ShardId]; ok {
+		p.lock.Unlock()
+		appender.dataCh <- entry
+		return entry.res
+	}
+
+	appender = newAppender(p.client, p.streamName, shard, p.batchSize, p.maxBatchBytes, p.timeOut, p.stop, p.controller)
+	p.appends[shard.ShardId] = appender
+	go appender.batchAppendLoop()
 	p.lock.Unlock()
 
 	appender.dataCh <- entry
@@ -231,7 +325,7 @@ func (p *BatchProducer) Append(record *HStreamRecord) AppendResult {
 type appender struct {
 	client         *HStreamClient
 	targetStream   string
-	targetKey      string
+	targetShard    *Shard
 	timeOut        time.Duration
 	batchSize      int
 	maxRecordSize  uint64
@@ -246,12 +340,12 @@ type appender struct {
 	stop   chan struct{}
 }
 
-func newAppender(client *HStreamClient, stream, key string, batchSize int, maxRecordSize uint64,
+func newAppender(client *HStreamClient, stream string, shard *Shard, batchSize int, maxRecordSize uint64,
 	timeout time.Duration, stopCh chan struct{}, controller *flowController) *appender {
 	return &appender{
 		client:        client,
 		targetStream:  stream,
-		targetKey:     key,
+		targetShard:   shard,
 		timeOut:       timeout,
 		batchSize:     batchSize,
 		maxRecordSize: maxRecordSize,
@@ -350,8 +444,8 @@ func (a *appender) sendAppend(records []*appendEntry, payloadSize uint64, forceL
 	if !forceLookUp && len(a.lastSendServer) != 0 {
 		server = a.lastSendServer
 	} else {
-		util.Logger().Debug("cache miss", zap.String("stream", a.targetStream), zap.String("key", a.targetKey), zap.String("lastServer", a.lastSendServer))
-		if server, err = a.client.LookUpStream(a.targetStream, a.targetKey); err != nil {
+		util.Logger().Debug("cache miss", zap.String("stream", a.targetStream), zap.Uint64("shardId", a.targetShard.ShardId), zap.String("lastServer", a.lastSendServer))
+		if server, err = a.client.LookupShard(a.targetShard.ShardId); err != nil {
 			handleBatchAppendError(err, records)
 			return
 		}
@@ -360,7 +454,7 @@ func (a *appender) sendAppend(records []*appendEntry, payloadSize uint64, forceL
 	res, err := a.client.sendRequest(server, req)
 	if err != nil {
 		if !forceLookUp && status.Code(err) == codes.FailedPrecondition {
-			util.Logger().Debug("cache miss because err", zap.String("stream", a.targetStream), zap.String("key", a.targetKey))
+			util.Logger().Debug("cache miss because err", zap.String("stream", a.targetStream), zap.Uint64("shardId", a.targetShard.ShardId))
 			a.sendAppend(records, payloadSize, true)
 			return
 		}
@@ -417,4 +511,12 @@ func handleBatchAppendError(err error, records []*appendEntry) {
 	for _, record := range records {
 		record.res.setResponse(nil, err)
 	}
+}
+
+// FIXME：add object pool or cache
+func calculateShardRangeKey(shardKey string) string {
+	h := md5.Sum([]byte(shardKey))
+	res := new(big.Int)
+	res.SetBytes(h[:])
+	return res.String()
 }

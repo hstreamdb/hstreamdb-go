@@ -89,7 +89,8 @@ func (s *testStreamSuite) TestAppendHRecord() {
 	}()
 	s.NoError(err)
 
-	producer := s.client.NewProducer(streamName)
+	producer, err := s.client.NewProducer(streamName)
+	s.NoError(err)
 	res := make([]hstream.AppendResult, 0, 100)
 	payload := map[string]interface{}{
 		"key":       "key-1",
@@ -118,7 +119,8 @@ func (s *testStreamSuite) TestAppendRawRecord() {
 	}()
 	s.NoError(err)
 
-	producer := s.client.NewProducer(streamName)
+	producer, err := s.client.NewProducer(streamName)
+	s.NoError(err)
 	res := make([]hstream.AppendResult, 0, 100)
 	rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("value-1"))
 	for i := 0; i < 100; i++ {
@@ -136,7 +138,7 @@ func (s *testStreamSuite) TestAppendRawRecord() {
 func (s *testStreamSuite) TestBatchAppend() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName)
+	err := s.client.CreateStream(streamName, hstream.WithShardCount(4))
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()
@@ -163,7 +165,7 @@ func (s *testStreamSuite) TestBatchAppend() {
 func (s *testStreamSuite) TestBatchAppendHRecordWithMultiKey() {
 	rand.Seed(time.Now().UnixNano())
 	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName)
+	err := s.client.CreateStream(streamName, hstream.WithShardCount(5))
 	defer func() {
 		_ = s.client.DeleteStream(streamName)
 	}()
