@@ -368,9 +368,16 @@ func (a *appender) Close() {
 	if atomic.LoadInt32(&a.isClosed) == 1 {
 		return
 	}
-	a.resetBuffer()
-	atomic.StoreInt32(&a.isClosed, 1)
 	close(a.dataCh)
+	atomic.StoreInt32(&a.isClosed, 1)
+	// flush unsend records
+	// TODO: Maybe it's worth checking if there are any messages that were previously
+	// blocked from being sent before deciding whether to send them, otherwise it
+	// could lead to a messy sequence?
+	if len(a.buffer) != 0 {
+		a.sendAppend(a.buffer, false)
+	}
+	a.resetBuffer()
 }
 
 func (a *appender) fetchBatchData() ([]*appendEntry, uint64) {
@@ -422,7 +429,7 @@ func (a *appender) batchAppendLoop() {
 		}
 
 		a.acquire(payloadSize)
-		a.sendAppend(records, payloadSize, false)
+		a.sendAppend(records, false)
 		a.release(payloadSize)
 	}
 }
@@ -443,7 +450,7 @@ func (a *appender) release(size uint64) {
 	a.controller.Release(size)
 }
 
-func (a *appender) sendAppend(records []*appendEntry, payloadSize uint64, forceLookUp bool) {
+func (a *appender) sendAppend(records []*appendEntry, forceLookUp bool) {
 	req := createAppendReq(records, a.targetStream)
 
 	var server string
@@ -462,7 +469,7 @@ func (a *appender) sendAppend(records []*appendEntry, payloadSize uint64, forceL
 	if err != nil {
 		if !forceLookUp && status.Code(err) == codes.FailedPrecondition {
 			util.Logger().Debug("cache miss because err", zap.String("stream", a.targetStream), zap.Uint64("shardId", a.targetShard.ShardId))
-			a.sendAppend(records, payloadSize, true)
+			a.sendAppend(records, true)
 			return
 		}
 		handleBatchAppendError(err, records)
@@ -523,7 +530,7 @@ func handleBatchAppendError(err error, records []*appendEntry) {
 	}
 }
 
-// FIXME：add object pool or cache
+// FIXME：mabey need to add object pool or cache
 func calculateShardRangeKey(shardKey string) string {
 	h := md5.Sum([]byte(shardKey))
 	res := new(big.Int)

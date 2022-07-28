@@ -16,14 +16,17 @@ type Shard struct {
 	EndHashKey   string
 }
 
-// FIXME: use object pool here
+// FIXME: maybe need to use object pool here
 func (s *Shard) Less(other btree.Item) bool {
+	//a1, _ := new(big.Int).SetString(s.StartHashKey, 0)
+	//util.Logger().Debug("Less func", zap.String("startHashKey", s.StartHashKey), zap.Any("a1", a1))
+	//b1, _ := new(big.Int).SetString(other.(*Shard).StartHashKey, 0)
+
 	a1 := new(big.Int)
 	a1.SetBytes([]byte(s.StartHashKey))
 	b1 := new(big.Int)
 	b1.SetBytes([]byte(other.(*Shard).StartHashKey))
 	return a1.Cmp(b1) < 0
-	//return s.StartHashKey < other.(*Shard).StartHashKey
 }
 
 // ListShards will send a ListShardsRPC to HStreamDB server and wait for response.

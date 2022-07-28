@@ -116,14 +116,15 @@ func (s *testSubscriptionSuite) TestFetch() {
 	producer, err := s.client.NewBatchProducer(streamName, hstream.WithBatch(5, 1000000))
 	s.NoError(err)
 
-	res := make([]hstream.AppendResult, 0, 10)
-	for i := 0; i < 10; i++ {
+	totalRecords := 100
+	res := make([]hstream.AppendResult, 0, totalRecords)
+	for i := 0; i < totalRecords; i++ {
 		rawRecord, _ := Record.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
 		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
 
-	rids := make([]Record.RecordId, 0, 10)
+	rids := make([]Record.RecordId, 0, totalRecords)
 	for _, r := range res {
 		resp, err := r.Ready()
 		s.NoError(err)
@@ -135,7 +136,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 	defer consumer.Stop()
 
 	dataCh := consumer.StartFetch()
-	fetchRes := make([]Record.RecordId, 0, 10)
+	fetchRes := make([]Record.RecordId, 0, totalRecords)
 	for res := range dataCh {
 		s.NoError(res.Err)
 		for _, record := range res.Result {
@@ -143,7 +144,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 			fetchRes = append(fetchRes, rid)
 			record.Ack()
 		}
-		if len(fetchRes) == 10 {
+		if len(fetchRes) == totalRecords {
 			break
 		}
 	}
