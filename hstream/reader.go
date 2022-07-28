@@ -1,6 +1,7 @@
 package hstream
 
 import (
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	"github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"google.golang.org/grpc/codes"
@@ -37,10 +38,10 @@ func (e latestShardOffset) toShardOffset() *server.ShardOffset {
 	return &server.ShardOffset{Offset: &offset}
 }
 
-type recordOffset RecordId
+type recordOffset Record.RecordId
 
 // NewRecordOffset create a RecordOffset of a shard
-func NewRecordOffset(recordId RecordId) ShardOffset {
+func NewRecordOffset(recordId Record.RecordId) ShardOffset {
 	rid := recordOffset(recordId)
 	return rid
 }
@@ -123,11 +124,11 @@ func (c *HStreamClient) NewShardReader(streamName string, readerId string, shard
 }
 
 // Read read up to maxRecords from a shard
-func (s *ShardReader) Read(maxRecords uint32) ([]ReceivedRecord, error) {
+func (s *ShardReader) Read(maxRecords uint32) ([]Record.ReceivedRecord, error) {
 	return s.read(maxRecords, false)
 }
 
-func (s *ShardReader) read(maxRecords uint32, forceLookup bool) ([]ReceivedRecord, error) {
+func (s *ShardReader) read(maxRecords uint32, forceLookup bool) ([]Record.ReceivedRecord, error) {
 	var addr string
 	var err error
 	if forceLookup || len(s.lastSendServer) == 0 {
@@ -155,7 +156,7 @@ func (s *ShardReader) read(maxRecords uint32, forceLookup bool) ([]ReceivedRecor
 	}
 
 	records := res.Resp.(*server.ReadShardResponse).GetReceivedRecords()
-	readRes := make([]ReceivedRecord, 0, len(records))
+	readRes := make([]Record.ReceivedRecord, 0, len(records))
 	for _, record := range records {
 		receivedRecord, err := ReceivedRecordFromPb(record)
 		if err != nil {

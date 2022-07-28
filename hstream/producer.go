@@ -3,6 +3,7 @@ package hstream
 import (
 	"crypto/md5"
 	"fmt"
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"math"
@@ -35,12 +36,12 @@ type appendEntry struct {
 type AppendResult interface {
 	// Ready will return when the append request return,
 	// or an error if append fails.
-	Ready() (RecordId, error)
+	Ready() (Record.RecordId, error)
 }
 
 type rpcAppendRes struct {
 	ready chan struct{}
-	resp  RecordId
+	resp  Record.RecordId
 	err   error
 }
 
@@ -57,7 +58,7 @@ func (r *rpcAppendRes) String() string {
 	return r.resp.String()
 }
 
-func (r *rpcAppendRes) Ready() (RecordId, error) {
+func (r *rpcAppendRes) Ready() (Record.RecordId, error) {
 	<-r.ready
 	return r.resp, r.err
 }
@@ -147,11 +148,14 @@ func newProducer(client *HStreamClient, streamName string) (*Producer, error) {
 }
 
 // Append will write a single record to the specified stream. This is a synchronous method.
-func (p *Producer) Append(record *HStreamRecord) AppendResult {
-	key := record.Key
+func (p *Producer) Append(record Record.HStreamRecord) AppendResult {
+	key := record.GetKey()
 	entry := buildAppendEntry(p.streamName, key, record)
+	if entry.res.err != nil {
+		return entry.res
+	}
 
-	p.sendAppend(p.streamName, record.Key, []*appendEntry{entry})
+	p.sendAppend(p.streamName, record.GetKey(), []*appendEntry{entry})
 	return entry.res
 }
 
@@ -284,9 +288,12 @@ func (p *BatchProducer) Stop() {
 // Append will write batch records to the specified stream. This is an asynchronous method.
 // The backend goroutines are responsible for collecting the batch records and sending the
 // data to the server when the trigger conditions are met.
-func (p *BatchProducer) Append(record *HStreamRecord) AppendResult {
-	key := record.Key
+func (p *BatchProducer) Append(record Record.HStreamRecord) AppendResult {
+	key := record.GetKey()
 	entry := buildAppendEntry(p.streamName, key, record)
+	if entry.res.err != nil {
+		return entry.res
+	}
 
 	// records are collected by shard.
 	hashKey := calculateShardRangeKey(key)
@@ -495,9 +502,12 @@ func (a *appender) resetBuffer() {
 	a.buffer = a.buffer[:0]
 }
 
-func buildAppendEntry(streamName, key string, record *HStreamRecord) *appendEntry {
+func buildAppendEntry(streamName, key string, record Record.HStreamRecord) *appendEntry {
 	res := newRPCAppendRes()
-	pbRecord := HStreamRecordToPb(record)
+	pbRecord, err := HStreamRecordToPb(record)
+	if err != nil {
+		res.err = err
+	}
 	entry := &appendEntry{
 		streamName: streamName,
 		key:        key,

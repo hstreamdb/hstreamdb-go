@@ -1,6 +1,7 @@
 package integraion_test
 
 import (
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -117,12 +118,12 @@ func (s *testSubscriptionSuite) TestFetch() {
 
 	res := make([]hstream.AppendResult, 0, 10)
 	for i := 0; i < 10; i++ {
-		rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
+		rawRecord, _ := Record.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
 		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
 
-	rids := make([]hstream.RecordId, 0, 10)
+	rids := make([]Record.RecordId, 0, 10)
 	for _, r := range res {
 		resp, err := r.Ready()
 		s.NoError(err)
@@ -134,7 +135,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 	defer consumer.Stop()
 
 	dataCh := consumer.StartFetch()
-	fetchRes := make([]hstream.RecordId, 0, 10)
+	fetchRes := make([]Record.RecordId, 0, 10)
 	for res := range dataCh {
 		s.NoError(res.Err)
 		for _, record := range res.Result {
