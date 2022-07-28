@@ -2,6 +2,7 @@ package integraion_test
 
 import (
 	"fmt"
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -97,7 +98,7 @@ func (s *testStreamSuite) TestAppendHRecord() {
 		"value":     []byte(fmt.Sprintf("test-value-%s-%d", "key-1", 1)),
 		"timestamp": time.Now().UnixNano(),
 	}
-	hRecord, _ := hstream.NewHStreamHRecord("key-1", payload)
+	hRecord, _ := Record.NewHStreamHRecord("key-1", payload)
 	for i := 0; i < 100; i++ {
 		r := producer.Append(hRecord)
 		res = append(res, r)
@@ -122,7 +123,7 @@ func (s *testStreamSuite) TestAppendRawRecord() {
 	producer, err := s.client.NewProducer(streamName)
 	s.NoError(err)
 	res := make([]hstream.AppendResult, 0, 100)
-	rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("value-1"))
+	rawRecord, _ := Record.NewHStreamRawRecord("key-1", []byte("value-1"))
 	for i := 0; i < 100; i++ {
 		r := producer.Append(rawRecord)
 		res = append(res, r)
@@ -150,7 +151,7 @@ func (s *testStreamSuite) TestBatchAppend() {
 
 	res := make([]hstream.AppendResult, 0, 1000)
 	for i := 0; i < 1000; i++ {
-		rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
+		rawRecord, _ := Record.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
 		r := producer.Append(rawRecord)
 		res = append(res, r)
 	}
@@ -188,7 +189,7 @@ func (s *testStreamSuite) TestBatchAppendHRecordWithMultiKey() {
 					"value":     []byte(fmt.Sprintf("test-value-%s-%d", key, i)),
 					"timestamp": time.Now().UnixNano(),
 				}
-				hRecord, _ := hstream.NewHStreamHRecord(key, payload)
+				hRecord, _ := Record.NewHStreamHRecord(key, payload)
 				r := producer.Append(hRecord)
 				result = append(result, r)
 			}
@@ -231,7 +232,7 @@ func (s *testStreamSuite) TestBatchAppendRawRecordWithMultiKey() {
 		go func(key string) {
 			result := make([]hstream.AppendResult, 0, 1000)
 			for i := 0; i < 1000; i++ {
-				rawRecord, _ := hstream.NewHStreamRawRecord(key, []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
+				rawRecord, _ := Record.NewHStreamRawRecord(key, []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
 				r := producer.Append(rawRecord)
 				result = append(result, r)
 			}

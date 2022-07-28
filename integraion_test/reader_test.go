@@ -2,6 +2,7 @@ package integraion
 
 import (
 	"github.com/hstreamdb/hstreamdb-go/hstream"
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/suite"
@@ -54,8 +55,8 @@ func (s *testShardReaderSuite) TestReadFromRecordId() {
 	totalRecords := 100
 	producer, err := s.client.NewProducer(streamName)
 	s.NoError(err)
-	writeRecords := make([]hstream.RecordId, 0, totalRecords)
-	rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("value-1"))
+	writeRecords := make([]Record.RecordId, 0, totalRecords)
+	rawRecord, _ := Record.NewHStreamRawRecord("key-1", []byte("value-1"))
 	for i := 0; i < totalRecords; i++ {
 		r := producer.Append(rawRecord)
 		rid, err := r.Ready()
@@ -71,7 +72,7 @@ func (s *testShardReaderSuite) TestReadFromRecordId() {
 	s.NoError(err)
 	defer reader.DeleteShardReader()
 
-	readRecords := make([]hstream.ReceivedRecord, 0, totalRecords)
+	readRecords := make([]Record.ReceivedRecord, 0, totalRecords)
 	timer := time.NewTimer(10 * time.Second)
 	defer timer.Stop()
 	for {
@@ -110,8 +111,8 @@ func (s *testShardReaderSuite) readFromSpecialOffset(offset hstream.ShardOffset)
 	totalRecords := 100
 	producer, err := s.client.NewProducer(streamName)
 	s.NoError(err)
-	writeRecords := make([]hstream.RecordId, 0, totalRecords)
-	rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte("value-1"))
+	writeRecords := make([]Record.RecordId, 0, totalRecords)
+	rawRecord, _ := Record.NewHStreamRawRecord("key-1", []byte("value-1"))
 	for i := 0; i < 100; i++ {
 		r := producer.Append(rawRecord)
 		rid, err := r.Ready()
@@ -119,7 +120,7 @@ func (s *testShardReaderSuite) readFromSpecialOffset(offset hstream.ShardOffset)
 		writeRecords = append(writeRecords, rid)
 	}
 
-	readRecords := make([]hstream.ReceivedRecord, 0, totalRecords)
+	readRecords := make([]Record.ReceivedRecord, 0, totalRecords)
 	timer := time.NewTimer(10 * time.Second)
 	defer timer.Stop()
 	for {

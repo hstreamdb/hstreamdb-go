@@ -2,6 +2,7 @@ package hstream
 
 import (
 	"context"
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"io"
 	"sync"
 	"time"
@@ -25,11 +26,11 @@ type FetchRecords struct {
 }
 
 type FetchResult struct {
-	ReceivedRecord
-	ackCh chan RecordId
+	Record.ReceivedRecord
+	ackCh chan Record.RecordId
 }
 
-func newFetchRes(record ReceivedRecord, ackCh chan RecordId) *FetchResult {
+func newFetchRes(record Record.ReceivedRecord, ackCh chan Record.RecordId) *FetchResult {
 	res := &FetchResult{
 		ackCh: ackCh,
 	}
@@ -47,7 +48,7 @@ type Consumer struct {
 	subId        string
 	consumerName string
 	dataChannel  chan FetchRecords
-	ackChannel   chan RecordId
+	ackChannel   chan Record.RecordId
 
 	streamingCancel context.CancelFunc
 	waitAck         sync.WaitGroup
@@ -58,7 +59,7 @@ func NewConsumer(client *HStreamClient, subId string, consumerName string) *Cons
 		client:       client,
 		subId:        subId,
 		consumerName: consumerName,
-		ackChannel:   make(chan RecordId, 100),
+		ackChannel:   make(chan Record.RecordId, 100),
 	}
 }
 

@@ -1,14 +1,13 @@
 package test_util
 
 import (
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"sort"
-
-	"github.com/hstreamdb/hstreamdb-go/hstream"
 )
 
 var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"
 
-type RecordIdList []hstream.RecordId
+type RecordIdList []Record.RecordId
 
 func (r RecordIdList) Len() int {
 	return len(r)
@@ -23,7 +22,7 @@ type RecordIdComparator struct {
 }
 
 func (r RecordIdComparator) Less(i, j int) bool {
-	return hstream.CompareRecordId(r.RecordIdList[i], r.RecordIdList[j]) < 0
+	return Record.CompareRecordId(r.RecordIdList[i], r.RecordIdList[j]) < 0
 }
 
 func (r *RecordIdComparator) Sort() {
@@ -39,7 +38,7 @@ func RecordIdComparatorCompare(a, b RecordIdComparator) bool {
 	}
 
 	for i := 0; i < sizeA; i++ {
-		if hstream.CompareRecordId(a.RecordIdList[i], b.RecordIdList[i]) != 0 {
+		if Record.CompareRecordId(a.RecordIdList[i], b.RecordIdList[i]) != 0 {
 			return false
 		}
 	}

@@ -1,36 +1,16 @@
 package hstream
 
 import (
-	"encoding/json"
 	"github.com/golang/protobuf/proto"
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
-func RecordTypeFromPb(pb hstreampb.HStreamRecordHeader_Flag) (RecordType, error) {
-	switch pb {
-	case hstreampb.HStreamRecordHeader_RAW:
-		return RAWRECORD, nil
-	case hstreampb.HStreamRecordHeader_JSON:
-		return HRECORD, nil
-	default:
-		return UNKNOWN, errors.Errorf("unknown record type: %s", pb)
-	}
-}
-
-func RecordTypeToPb(r RecordType) (flag hstreampb.HStreamRecordHeader_Flag) {
-	switch r {
-	case RAWRECORD:
-		flag = hstreampb.HStreamRecordHeader_RAW
-	case HRECORD:
-		flag = hstreampb.HStreamRecordHeader_JSON
-	}
-	return
-}
-
-func RecordIdToPb(r RecordId) *hstreampb.RecordId {
+func RecordIdToPb(r Record.RecordId) *hstreampb.RecordId {
 	return &hstreampb.RecordId{
 		BatchId:    r.BatchId,
 		BatchIndex: r.BatchIndex,
@@ -38,50 +18,15 @@ func RecordIdToPb(r RecordId) *hstreampb.RecordId {
 	}
 }
 
-func RecordIdFromPb(pb *hstreampb.RecordId) RecordId {
-	return RecordId{
+func RecordIdFromPb(pb *hstreampb.RecordId) Record.RecordId {
+	return Record.RecordId{
 		BatchId:    pb.BatchId,
 		BatchIndex: pb.BatchIndex,
 		ShardId:    pb.ShardId,
 	}
 }
 
-func RecordHeaderToPb(r *RecordHeader) *hstreampb.HStreamRecordHeader {
-	pb := &hstreampb.HStreamRecordHeader{
-		Key:  r.Key,
-		Flag: RecordTypeToPb(r.Flag),
-	}
-	if len(r.Attributes) > 0 {
-		pb.Attributes = make(map[string]string)
-		for k, v := range r.Attributes {
-			pb.Attributes[k] = v
-		}
-	}
-	return pb
-}
-
-func RecordHeaderFromPb(pb *hstreampb.HStreamRecordHeader) (RecordHeader, error) {
-	flag, err := RecordTypeFromPb(pb.GetFlag())
-	if err != nil {
-		util.Logger().Error("failed to parse record type: %s", zap.Error(err))
-		return RecordHeader{}, err
-	}
-	return RecordHeader{
-		Key:        pb.GetKey(),
-		Flag:       flag,
-		Attributes: pb.GetAttributes(),
-	}, nil
-}
-
-func HStreamRecordToPb(r *HStreamRecord) *hstreampb.HStreamRecord {
-	header := RecordHeaderToPb(&r.Header)
-	return &hstreampb.HStreamRecord{
-		Header:  header,
-		Payload: r.Payload,
-	}
-}
-
-func ReceivedRecordFromPb(record *hstreampb.ReceivedRecord) (ReceivedRecord, error) {
+func ReceivedRecordFromPb(record *hstreampb.ReceivedRecord) (Record.ReceivedRecord, error) {
 	hstreamRecord := &hstreampb.HStreamRecord{}
 	if err := proto.Unmarshal(record.GetRecord(), hstreamRecord); err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal hstream record")
@@ -89,29 +34,30 @@ func ReceivedRecordFromPb(record *hstreampb.ReceivedRecord) (ReceivedRecord, err
 
 	switch hstreamRecord.GetHeader().GetFlag() {
 	case hstreampb.HStreamRecordHeader_RAW:
-		return fromRPCRawRecord(record.GetRecordId(), hstreamRecord)
+		return FromPbRawRecord(record.GetRecordId(), hstreamRecord)
 	case hstreampb.HStreamRecordHeader_JSON:
-		return fromRPCHRecord(record.GetRecordId(), hstreamRecord)
+		return FromPbHRecord(record.GetRecordId(), hstreamRecord)
 	default:
 		return nil, errors.Errorf("unknown record type: %s", hstreamRecord.GetHeader().GetFlag())
 	}
 }
 
-func fromRPCRawRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*RawRecord, error) {
+func FromPbRawRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*Record.ReceivedRawRecord, error) {
 	header, err := RecordHeaderFromPb(pb.GetHeader())
 	if err != nil {
 		return nil, err
 	}
-	return &RawRecord{
+	return &Record.ReceivedRawRecord{
 		Header:   header,
 		RecordId: RecordIdFromPb(rid),
 		Payload:  pb.GetPayload(),
 	}, nil
 }
 
-func fromRPCHRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*HRecord, error) {
-	hRecord := &HRecord{}
-	if err := json.Unmarshal(pb.GetPayload(), &hRecord.Payload); err != nil {
+func FromPbHRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*Record.ReceivedHRecord, error) {
+	hRecord := &Record.ReceivedHRecord{}
+	var res structpb.Struct
+	if err := res.UnmarshalJSON(pb.GetPayload()); err != nil {
 		return hRecord, errors.Wrap(err, "failed to unmarshal hrecord")
 	}
 	hRecord.RecordId = RecordIdFromPb(rid)
@@ -178,4 +124,78 @@ func ShardToPb(shard *Shard) *hstreampb.Shard {
 		StartHashRangeKey: shard.StartHashKey,
 		EndHashRangeKey:   shard.EndHashKey,
 	}
+}
+
+func HStreamRecordToPb(r Record.HStreamRecord) (*hstreampb.HStreamRecord, error) {
+	switch record := r.(type) {
+	case *Record.RawRecord:
+		return &hstreampb.HStreamRecord{
+			Header: &hstreampb.HStreamRecordHeader{
+				Key:  r.GetKey(),
+				Flag: hstreampb.HStreamRecordHeader_RAW,
+			},
+			Payload: record.Payload,
+		}, nil
+	case *Record.HRecord:
+		payload, err := record.Payload.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		return &hstreampb.HStreamRecord{
+			Header: &hstreampb.HStreamRecordHeader{
+				Key:  r.GetKey(),
+				Flag: hstreampb.HStreamRecordHeader_JSON,
+			},
+			Payload: payload,
+		}, nil
+	}
+	return nil, nil
+}
+
+//func recordHeaderToPb(r *Record.RecordHeader) *hstreampb.HStreamRecordHeader {
+//	pb := &hstreampb.HStreamRecordHeader{
+//		Key:  r.Key,
+//		Flag: Record.RecordTypeToPb(r.Flag),
+//	}
+//	if len(r.Attributes) > 0 {
+//		pb.Attributes = make(map[string]string)
+//		for k, v := range r.Attributes {
+//			pb.Attributes[k] = v
+//		}
+//	}
+//	return pb
+//}
+
+func RecordHeaderFromPb(pb *hstreampb.HStreamRecordHeader) (Record.RecordHeader, error) {
+	flag, err := RecordTypeFromPb(pb.GetFlag())
+	if err != nil {
+		util.Logger().Error("failed to parse record type: %s", zap.Error(err))
+		return Record.RecordHeader{}, err
+	}
+	return Record.RecordHeader{
+		Key:        pb.GetKey(),
+		Flag:       flag,
+		Attributes: pb.GetAttributes(),
+	}, nil
+}
+
+func RecordTypeFromPb(pb hstreampb.HStreamRecordHeader_Flag) (Record.RecordType, error) {
+	switch pb {
+	case hstreampb.HStreamRecordHeader_RAW:
+		return Record.RAWRECORD, nil
+	case hstreampb.HStreamRecordHeader_JSON:
+		return Record.HRECORD, nil
+	default:
+		return Record.UNKNOWN, errors.Errorf("unknown record type: %s", pb)
+	}
+}
+
+func RecordTypeToPb(r Record.RecordType) (flag hstreampb.HStreamRecordHeader_Flag) {
+	switch r {
+	case Record.RAWRECORD:
+		flag = hstreampb.HStreamRecordHeader_RAW
+	case Record.HRECORD:
+		flag = hstreampb.HStreamRecordHeader_JSON
+	}
+	return
 }
