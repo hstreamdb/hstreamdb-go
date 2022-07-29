@@ -94,30 +94,30 @@ func newShardInfoCache(shards []Shard) *shardInfoCache {
 	}
 }
 
-func (c *shardInfoCache) getServerInfo(client *HStreamClient, partitionKey string) (string, error) {
+func (c *shardInfoCache) getServerInfo(client *HStreamClient, partitionKey string) (string, uint64, error) {
 	hashKey := calculateShardRangeKey(partitionKey)
 	c.RLock()
 	shard := c.shardMap.FindLessOrEqual(hashKey)
 	if shard == nil {
 		c.RUnlock()
-		return "", errors.New(fmt.Sprintf("Can't find shard for hashKey %s", hashKey))
+		return "", 0, errors.New(fmt.Sprintf("Can't find shard for hashKey %s", hashKey))
 	}
 	info, ok := c.serverInfo[shard.ShardId]
 	if ok {
 		c.RUnlock()
-		return info, nil
+		return info, shard.ShardId, nil
 	}
 	c.RUnlock()
 
 	// cache miss, send LookupShard RPC to server
 	newInfo, err := client.LookupShard(shard.ShardId)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	c.Lock()
 	c.serverInfo[shard.ShardId] = newInfo
 	c.Unlock()
-	return newInfo, nil
+	return newInfo, shard.ShardId, nil
 }
 
 func (c *shardInfoCache) clear() {
@@ -160,12 +160,13 @@ func (p *Producer) Append(record Record.HStreamRecord) AppendResult {
 }
 
 func (p *Producer) sendAppend(targetStream, targetKey string, records []*appendEntry) {
-	req := createAppendReq(records, targetStream)
-	server, err := p.cache.getServerInfo(p.client, targetKey)
+	server, shardId, err := p.cache.getServerInfo(p.client, targetKey)
 	if err != nil {
 		handleBatchAppendError(err, records)
 		return
 	}
+
+	req := createAppendReq(records, targetStream, shardId)
 
 	res, err := p.client.sendRequest(server, req)
 	if err != nil {
@@ -451,7 +452,7 @@ func (a *appender) release(size uint64) {
 }
 
 func (a *appender) sendAppend(records []*appendEntry, forceLookUp bool) {
-	req := createAppendReq(records, a.targetStream)
+	req := createAppendReq(records, a.targetStream, a.targetShard.ShardId)
 
 	var server string
 	var err error
@@ -480,7 +481,7 @@ func (a *appender) sendAppend(records []*appendEntry, forceLookUp bool) {
 	setAppendResponse(res, records)
 }
 
-func createAppendReq(records []*appendEntry, targetStream string) *hstreamrpc.Request {
+func createAppendReq(records []*appendEntry, targetStream string, targetShard uint64) *hstreamrpc.Request {
 	reqRecords := make([]*hstreampb.HStreamRecord, 0, len(records))
 	for _, record := range records {
 		reqRecords = append(reqRecords, record.value)
@@ -489,6 +490,7 @@ func createAppendReq(records []*appendEntry, targetStream string) *hstreamrpc.Re
 		Type: hstreamrpc.Append,
 		Req: &hstreampb.AppendRequest{
 			StreamName: targetStream,
+			ShardId:    targetShard,
 			Records:    reqRecords,
 		},
 	}

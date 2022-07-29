@@ -31,7 +31,6 @@ type HStreamApiClient interface {
 	ListStreams(ctx context.Context, in *ListStreamsRequest, opts ...grpc.CallOption) (*ListStreamsResponse, error)
 	LookupShard(ctx context.Context, in *LookupShardRequest, opts ...grpc.CallOption) (*LookupShardResponse, error)
 	Append(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error)
-	Append0(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error)
 	// Shard APIs
 	ListShards(ctx context.Context, in *ListShardsRequest, opts ...grpc.CallOption) (*ListShardsResponse, error)
 	CreateShardReader(ctx context.Context, in *CreateShardReaderRequest, opts ...grpc.CallOption) (*CreateShardReaderResponse, error)
@@ -69,8 +68,9 @@ type HStreamApiClient interface {
 	ListConnectors(ctx context.Context, in *ListConnectorsRequest, opts ...grpc.CallOption) (*ListConnectorsResponse, error)
 	GetConnector(ctx context.Context, in *GetConnectorRequest, opts ...grpc.CallOption) (*Connector, error)
 	DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	StartConnector(ctx context.Context, in *StartConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
-	StopConnector(ctx context.Context, in *StopConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	PauseConnector(ctx context.Context, in *PauseConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	ResumeConnector(ctx context.Context, in *ResumeConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	LookupConnector(ctx context.Context, in *LookupConnectorRequest, opts ...grpc.CallOption) (*LookupConnectorResponse, error)
 	// view related apis
 	ListViews(ctx context.Context, in *ListViewsRequest, opts ...grpc.CallOption) (*ListViewsResponse, error)
 	GetView(ctx context.Context, in *GetViewRequest, opts ...grpc.CallOption) (*View, error)
@@ -136,15 +136,6 @@ func (c *hStreamApiClient) LookupShard(ctx context.Context, in *LookupShardReque
 func (c *hStreamApiClient) Append(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error) {
 	out := new(AppendResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/Append", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *hStreamApiClient) Append0(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error) {
-	out := new(AppendResponse)
-	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/Append0", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -430,18 +421,27 @@ func (c *hStreamApiClient) DeleteConnector(ctx context.Context, in *DeleteConnec
 	return out, nil
 }
 
-func (c *hStreamApiClient) StartConnector(ctx context.Context, in *StartConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *hStreamApiClient) PauseConnector(ctx context.Context, in *PauseConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/StartConnector", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/PauseConnector", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *hStreamApiClient) StopConnector(ctx context.Context, in *StopConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *hStreamApiClient) ResumeConnector(ctx context.Context, in *ResumeConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/StopConnector", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ResumeConnector", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) LookupConnector(ctx context.Context, in *LookupConnectorRequest, opts ...grpc.CallOption) (*LookupConnectorResponse, error) {
+	out := new(LookupConnectorResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/LookupConnector", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -504,7 +504,6 @@ type HStreamApiServer interface {
 	ListStreams(context.Context, *ListStreamsRequest) (*ListStreamsResponse, error)
 	LookupShard(context.Context, *LookupShardRequest) (*LookupShardResponse, error)
 	Append(context.Context, *AppendRequest) (*AppendResponse, error)
-	Append0(context.Context, *AppendRequest) (*AppendResponse, error)
 	// Shard APIs
 	ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error)
 	CreateShardReader(context.Context, *CreateShardReaderRequest) (*CreateShardReaderResponse, error)
@@ -542,8 +541,9 @@ type HStreamApiServer interface {
 	ListConnectors(context.Context, *ListConnectorsRequest) (*ListConnectorsResponse, error)
 	GetConnector(context.Context, *GetConnectorRequest) (*Connector, error)
 	DeleteConnector(context.Context, *DeleteConnectorRequest) (*emptypb.Empty, error)
-	StartConnector(context.Context, *StartConnectorRequest) (*emptypb.Empty, error)
-	StopConnector(context.Context, *StopConnectorRequest) (*emptypb.Empty, error)
+	PauseConnector(context.Context, *PauseConnectorRequest) (*emptypb.Empty, error)
+	ResumeConnector(context.Context, *ResumeConnectorRequest) (*emptypb.Empty, error)
+	LookupConnector(context.Context, *LookupConnectorRequest) (*LookupConnectorResponse, error)
 	// view related apis
 	ListViews(context.Context, *ListViewsRequest) (*ListViewsResponse, error)
 	GetView(context.Context, *GetViewRequest) (*View, error)
@@ -575,9 +575,6 @@ func (UnimplementedHStreamApiServer) LookupShard(context.Context, *LookupShardRe
 }
 func (UnimplementedHStreamApiServer) Append(context.Context, *AppendRequest) (*AppendResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Append not implemented")
-}
-func (UnimplementedHStreamApiServer) Append0(context.Context, *AppendRequest) (*AppendResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Append0 not implemented")
 }
 func (UnimplementedHStreamApiServer) ListShards(context.Context, *ListShardsRequest) (*ListShardsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListShards not implemented")
@@ -657,11 +654,14 @@ func (UnimplementedHStreamApiServer) GetConnector(context.Context, *GetConnector
 func (UnimplementedHStreamApiServer) DeleteConnector(context.Context, *DeleteConnectorRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteConnector not implemented")
 }
-func (UnimplementedHStreamApiServer) StartConnector(context.Context, *StartConnectorRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StartConnector not implemented")
+func (UnimplementedHStreamApiServer) PauseConnector(context.Context, *PauseConnectorRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PauseConnector not implemented")
 }
-func (UnimplementedHStreamApiServer) StopConnector(context.Context, *StopConnectorRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StopConnector not implemented")
+func (UnimplementedHStreamApiServer) ResumeConnector(context.Context, *ResumeConnectorRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResumeConnector not implemented")
+}
+func (UnimplementedHStreamApiServer) LookupConnector(context.Context, *LookupConnectorRequest) (*LookupConnectorResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LookupConnector not implemented")
 }
 func (UnimplementedHStreamApiServer) ListViews(context.Context, *ListViewsRequest) (*ListViewsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListViews not implemented")
@@ -795,24 +795,6 @@ func _HStreamApi_Append_Handler(srv interface{}, ctx context.Context, dec func(i
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HStreamApiServer).Append(ctx, req.(*AppendRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _HStreamApi_Append0_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AppendRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(HStreamApiServer).Append0(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/hstream.server.HStreamApi/Append0",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HStreamApiServer).Append0(ctx, req.(*AppendRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1296,38 +1278,56 @@ func _HStreamApi_DeleteConnector_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _HStreamApi_StartConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartConnectorRequest)
+func _HStreamApi_PauseConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PauseConnectorRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(HStreamApiServer).StartConnector(ctx, in)
+		return srv.(HStreamApiServer).PauseConnector(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/hstream.server.HStreamApi/StartConnector",
+		FullMethod: "/hstream.server.HStreamApi/PauseConnector",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HStreamApiServer).StartConnector(ctx, req.(*StartConnectorRequest))
+		return srv.(HStreamApiServer).PauseConnector(ctx, req.(*PauseConnectorRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _HStreamApi_StopConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StopConnectorRequest)
+func _HStreamApi_ResumeConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResumeConnectorRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(HStreamApiServer).StopConnector(ctx, in)
+		return srv.(HStreamApiServer).ResumeConnector(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/hstream.server.HStreamApi/StopConnector",
+		FullMethod: "/hstream.server.HStreamApi/ResumeConnector",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HStreamApiServer).StopConnector(ctx, req.(*StopConnectorRequest))
+		return srv.(HStreamApiServer).ResumeConnector(ctx, req.(*ResumeConnectorRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_LookupConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LookupConnectorRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).LookupConnector(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/LookupConnector",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).LookupConnector(ctx, req.(*LookupConnectorRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1454,10 +1454,6 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_Append_Handler,
 		},
 		{
-			MethodName: "Append0",
-			Handler:    _HStreamApi_Append0_Handler,
-		},
-		{
 			MethodName: "ListShards",
 			Handler:    _HStreamApi_ListShards_Handler,
 		},
@@ -1554,12 +1550,16 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_DeleteConnector_Handler,
 		},
 		{
-			MethodName: "StartConnector",
-			Handler:    _HStreamApi_StartConnector_Handler,
+			MethodName: "PauseConnector",
+			Handler:    _HStreamApi_PauseConnector_Handler,
 		},
 		{
-			MethodName: "StopConnector",
-			Handler:    _HStreamApi_StopConnector_Handler,
+			MethodName: "ResumeConnector",
+			Handler:    _HStreamApi_ResumeConnector_Handler,
+		},
+		{
+			MethodName: "LookupConnector",
+			Handler:    _HStreamApi_LookupConnector_Handler,
 		},
 		{
 			MethodName: "ListViews",
