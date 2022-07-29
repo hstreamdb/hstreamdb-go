@@ -155,11 +155,11 @@ func (p *Producer) Append(record Record.HStreamRecord) AppendResult {
 		return entry.res
 	}
 
-	p.sendAppend(p.streamName, record.GetKey(), []*appendEntry{entry})
+	p.sendAppend(p.streamName, record.GetKey(), []appendEntry{entry})
 	return entry.res
 }
 
-func (p *Producer) sendAppend(targetStream, targetKey string, records []*appendEntry) {
+func (p *Producer) sendAppend(targetStream, targetKey string, records []appendEntry) {
 	server, shardId, err := p.cache.getServerInfo(p.client, targetKey)
 	if err != nil {
 		handleBatchAppendError(err, records)
@@ -306,8 +306,7 @@ func (p *BatchProducer) Append(record Record.HStreamRecord) AppendResult {
 		return entry.res
 	}
 
-	appender, ok := p.appends[shard.ShardId]
-	if ok {
+	if appender, ok := p.appends[shard.ShardId]; ok {
 		p.lock.RUnlock()
 		appender.dataCh <- entry
 		return entry.res
@@ -315,13 +314,13 @@ func (p *BatchProducer) Append(record Record.HStreamRecord) AppendResult {
 	p.lock.RUnlock()
 
 	p.lock.Lock()
-	if appender, ok = p.appends[shard.ShardId]; ok {
+	if appender, ok := p.appends[shard.ShardId]; ok {
 		p.lock.Unlock()
 		appender.dataCh <- entry
 		return entry.res
 	}
 
-	appender = newAppender(p.client, p.streamName, shard, p.batchSize, p.maxBatchBytes, p.timeOut, p.stop, p.controller)
+	appender := newAppender(p.client, p.streamName, shard, p.batchSize, p.maxBatchBytes, p.timeOut, p.stop, p.controller)
 	p.appends[shard.ShardId] = appender
 	go appender.batchAppendLoop()
 	p.lock.Unlock()
@@ -337,14 +336,14 @@ type appender struct {
 	timeOut        time.Duration
 	batchSize      int
 	maxRecordSize  uint64
-	buffer         []*appendEntry
+	buffer         []appendEntry
 	lastSendServer string
 	// isClosed == 1 means closed
 	isClosed int32
 
 	controller *flowController
 
-	dataCh chan *appendEntry
+	dataCh chan appendEntry
 	stop   chan struct{}
 }
 
@@ -357,8 +356,8 @@ func newAppender(client *HStreamClient, stream string, shard *Shard, batchSize i
 		timeOut:       timeout,
 		batchSize:     batchSize,
 		maxRecordSize: maxRecordSize,
-		buffer:        make([]*appendEntry, 0, batchSize),
-		dataCh:        make(chan *appendEntry, batchSize),
+		buffer:        make([]appendEntry, 0, batchSize),
+		dataCh:        make(chan appendEntry, batchSize),
 		stop:          stopCh,
 		isClosed:      0,
 		controller:    controller,
@@ -378,10 +377,9 @@ func (a *appender) Close() {
 	if len(a.buffer) != 0 {
 		a.sendAppend(a.buffer, false)
 	}
-	a.resetBuffer()
 }
 
-func (a *appender) fetchBatchData() ([]*appendEntry, uint64) {
+func (a *appender) fetchBatchData() ([]appendEntry, uint64) {
 	// FIXME: consider reuse timer ???
 	timer := time.NewTimer(a.timeOut)
 	defer func() {
@@ -389,7 +387,6 @@ func (a *appender) fetchBatchData() ([]*appendEntry, uint64) {
 			<-timer.C
 		}
 	}()
-	a.resetBuffer()
 	totalPayloadBytes := uint64(0)
 
 	for {
@@ -399,8 +396,9 @@ func (a *appender) fetchBatchData() ([]*appendEntry, uint64) {
 			totalPayloadBytes += uint64(len(record.value.Payload))
 			if len(a.buffer) >= a.batchSize || totalPayloadBytes >= a.maxRecordSize {
 				size := util.Min(a.batchSize, len(a.buffer))
-				res := make([]*appendEntry, size)
+				res := make([]appendEntry, size)
 				copy(res, a.buffer)
+				a.resetBuffer()
 				return res, totalPayloadBytes
 			}
 		case <-timer.C:
@@ -409,8 +407,9 @@ func (a *appender) fetchBatchData() ([]*appendEntry, uint64) {
 			if size == 0 {
 				return nil, 0
 			}
-			res := make([]*appendEntry, size)
+			res := make([]appendEntry, size)
 			copy(res, a.buffer)
+			a.resetBuffer()
 			return res, totalPayloadBytes
 		case <-a.stop:
 			return nil, 0
@@ -419,6 +418,7 @@ func (a *appender) fetchBatchData() ([]*appendEntry, uint64) {
 }
 
 func (a *appender) batchAppendLoop() {
+	util.Logger().Info("batchAppendLoop", zap.Uint64("shardId", a.targetShard.ShardId))
 	for {
 		if atomic.LoadInt32(&a.isClosed) == 1 {
 			return
@@ -451,7 +451,7 @@ func (a *appender) release(size uint64) {
 	a.controller.Release(size)
 }
 
-func (a *appender) sendAppend(records []*appendEntry, forceLookUp bool) {
+func (a *appender) sendAppend(records []appendEntry, forceLookUp bool) {
 	req := createAppendReq(records, a.targetStream, a.targetShard.ShardId)
 
 	var server string
@@ -481,7 +481,7 @@ func (a *appender) sendAppend(records []*appendEntry, forceLookUp bool) {
 	setAppendResponse(res, records)
 }
 
-func createAppendReq(records []*appendEntry, targetStream string, targetShard uint64) *hstreamrpc.Request {
+func createAppendReq(records []appendEntry, targetStream string, targetShard uint64) *hstreamrpc.Request {
 	reqRecords := make([]*hstreampb.HStreamRecord, 0, len(records))
 	for _, record := range records {
 		reqRecords = append(reqRecords, record.value)
@@ -496,7 +496,7 @@ func createAppendReq(records []*appendEntry, targetStream string, targetShard ui
 	}
 }
 
-func setAppendResponse(res *hstreamrpc.Response, records []*appendEntry) {
+func setAppendResponse(res *hstreamrpc.Response, records []appendEntry) {
 	size := len(records)
 	rids := res.Resp.(*hstreampb.AppendResponse).GetRecordIds()
 	for i := 0; i < size; i++ {
@@ -505,19 +505,16 @@ func setAppendResponse(res *hstreamrpc.Response, records []*appendEntry) {
 }
 
 func (a *appender) resetBuffer() {
-	for i := 0; i < len(a.buffer); i++ {
-		a.buffer[i] = nil
-	}
 	a.buffer = a.buffer[:0]
 }
 
-func buildAppendEntry(streamName, key string, record Record.HStreamRecord) *appendEntry {
+func buildAppendEntry(streamName, key string, record Record.HStreamRecord) appendEntry {
 	res := newRPCAppendRes()
 	pbRecord, err := HStreamRecordToPb(record)
 	if err != nil {
 		res.err = err
 	}
-	entry := &appendEntry{
+	entry := appendEntry{
 		streamName: streamName,
 		key:        key,
 		value:      pbRecord,
@@ -526,7 +523,7 @@ func buildAppendEntry(streamName, key string, record Record.HStreamRecord) *appe
 	return entry
 }
 
-func handleBatchAppendError(err error, records []*appendEntry) {
+func handleBatchAppendError(err error, records []appendEntry) {
 	for _, record := range records {
 		record.res.setResponse(nil, err)
 	}
