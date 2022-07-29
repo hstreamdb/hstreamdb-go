@@ -12,10 +12,11 @@ Go Client for HStreamDB
   - [Write to Stream](#write-to-stream)
   - [Work with Subscriptions](#work-with-subscriptions)
   - [Consume from Subscription](#consume-from-subscription)
+  - [Work with ShardReader](#Work_with_ShardReader)
 
 ## Installation
 
-**Go 1.17** or later is required.
+**Go 1.18** or later is required.
 
 Add the package to your project dependencies (go.mod).
 
@@ -53,9 +54,10 @@ import (
 
 func main() {
 	// -------------- connect to server first --------------------
-	// Create a new stream with 1 replica, set the data retention to 1800s.
+	// Create a new stream with 1 replica, 5 shards, set the data retention to 1800s.
 	err := client.CreateStream("testStream",
              hstream.WithReplicationFactor(1),
+             hstream.WithShardCount(5),
              hstream.EnableBacklog(1800))
 	if err != nil {
 		log.Fatalf("Creating stream error: %s", err)
@@ -81,16 +83,20 @@ import (
     "log"
     "strconv"
     "github.com/hstreamdb/hstreamdb-go/hstream"
+    "github.com/hstreamdb/hstreamdb-go/hstream/Record"
 )
 
 func main() {
 	//------------- connect to server and create related stream first --------------------
-	producer := client.NewProducer("testStream")
+	producer, err := client.NewProducer("testStream")
+	if err != nil {
+		log.Fatalf("Create producer error: %s", err)
+	}
 	defer producer.Stop()
 
 	res := make([]hstream.AppendResult, 0, 100)
 	for i := 0; i < 100; i++ {
-		rawRecord, err := hstream.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
+		rawRecord, err := Record.NewHStreamRawRecord("key-1", []byte("test-value"+strconv.Itoa(i)))
 		if err != nil {
 			log.Fatalf("Creating rawRecord error: %s", err)
 		}
@@ -116,11 +122,15 @@ import (
     "log"
     "strconv"
     "github.com/hstreamdb/hstreamdb-go/hstream"
+    "github.com/hstreamdb/hstreamdb-go/hstream/Record"
 )
 
 func main() {
 	//------------- connect to server and create related stream first --------------------
-	producer := client.NewProducer("testStream")
+	producer, err := client.NewProducer("testStream")
+	if err != nil {
+		log.Fatalf("Create producer error: %s", err)
+	}
 	defer producer.Stop()
 
 	payload := map[string]interface{}{
@@ -135,7 +145,7 @@ func main() {
 		},
 	}
 
-	hRecord, err := hstream.NewHStreamHRecord("testStream", payload)
+	hRecord, err := Record.NewHStreamHRecord("testStream", payload)
 	if err != nil {
 		log.Fatalf("Creating hRecord error: %s", err)
 	}
@@ -156,11 +166,15 @@ import (
     "log"
     "sync"
     "github.com/hstreamdb/hstreamdb-go/hstream"
+    "github.com/hstreamdb/hstreamdb-go/hstream/Record"
 )
 
 func main() {
 	//------------- connect to server and create related stream first --------------------
-	producer, err := client.NewBatchProducer("testStream", hstream.WithBatch(10, 150))
+	producer, err := client.NewBatchProducer("testStream",
+		hstream.WithBatch(10, 1000), 
+		hstream.TimeOut(-1), 
+		hstream.WithFlowControl(80 * 1024 * 1024))
 	defer producer.Stop()
 
 	keys := []string{"test-key1", "test-key2", "test-key3"}
@@ -171,7 +185,7 @@ func main() {
 		go func(key string) {
 			result := make([]hstream.AppendResult, 0, 100)
 			for i := 0; i < 100; i++ {
-				rawRecord, _ := hstream.NewHStreamRawRecord("key-1", []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
+				rawRecord, _ := Record.NewHStreamRawRecord("key-1", []byte(fmt.Sprintf("test-value-%s-%d", key, i)))
 				r := producer.Append(rawRecord)
 				result = append(result, r)
 			}
@@ -209,7 +223,9 @@ func main() {
 	// Create a new subscription
 	streamName := "testStream"
 	subId := "SubscriptionId"
-	err = client.CreateSubscription(subId, streamName, 5)
+	err := client.CreateSubscription(subId, streamName, 
+		hstream.WithAckTimeout(60), 
+		hstream.WithOffset(hstream.LATEST))
 
 	// List all subscriptions
 	subs, err := client.ListSubscriptions()
@@ -217,7 +233,7 @@ func main() {
 		log.Fatalf("Listing subscriptions error: %s", err)
 	}
 	for _, sub := range subs {
-		log.Printf("SubscriptionId: %+v", subId)
+		log.Printf("Subscription: %+v", sub)
 	}
 }
 ```
@@ -228,6 +244,7 @@ func main() {
 import (
     "log"
     "github.com/hstreamdb/hstreamdb-go/hstream"
+    "github.com/hstreamdb/hstreamdb-go/hstream/Record"
 )
 
 func main() {
@@ -238,7 +255,7 @@ func main() {
 	defer consumer.Stop()
 
 	dataCh := consumer.StartFetch()
-	fetchRes := make([]hstream.RecordId, 0, 100)
+	fetchRes := make([]Record.RecordId, 0, 100)
 	for res := range dataCh {
 		if res.Err != nil {
 			log.Printf("Fetch error: %s\n", res.Err)
@@ -257,3 +274,37 @@ func main() {
 	}
 }
 ```
+
+### Work with ShardReader
+
+```go
+import (
+    "log"
+    "github.com/hstreamdb/hstreamdb-go/hstream"
+    "github.com/hstreamdb/hstreamdb-go/hstream/Record"
+)
+
+func main() {
+    // ------- connect to server and create related stream first -------
+    shards, err := client.ListShards(streamName)
+    if err != nil {
+        log.Fatalf("List Shards error: %s", err)
+    }
+    readerId := "reader"
+    reader, err := client.NewShardReader(streamName, readerId, shards[0].ShardId, 
+		hstream.WithShardOffset(hstream.EarliestShardOffset), 
+		hstream.WithReaderTimeout(100))
+    defer reader.DeleteShardReader()
+    
+    // ------- make sure that data has been written to the target shard ------
+    readRecords := make([]Record.ReceivedRecord, 0, 1000)
+    for {
+		res, _ := reader.Read(10)
+		readRecords = append(readRecords, res...)
+		if len(readRecords) >= 1000 {
+			break
+		}
+	}
+}
+```
+
