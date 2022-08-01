@@ -56,7 +56,7 @@ func FromPbRawRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*Rec
 
 func FromPbHRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*Record.ReceivedHRecord, error) {
 	hRecord := &Record.ReceivedHRecord{}
-	var res structpb.Struct
+	res := &structpb.Struct{}
 	if err := res.UnmarshalJSON(pb.GetPayload()); err != nil {
 		return hRecord, errors.Wrap(err, "failed to unmarshal hrecord")
 	}
@@ -66,6 +66,7 @@ func FromPbHRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*Recor
 		return nil, err
 	}
 	hRecord.Header = header
+	hRecord.Payload = res
 	return hRecord, nil
 }
 

@@ -3,6 +3,8 @@ package hstream
 import (
 	"context"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"io"
 	"sync"
 	"time"
@@ -195,13 +197,18 @@ func (c *Consumer) fetch(cancelCtx context.Context, stream hstreampb.HStreamApi_
 				zap.Int("count", len(records.GetReceivedRecords())))
 
 			var result FetchRecords
-			if err != nil && err == io.EOF {
-				util.Logger().Info("streamingFetch receive EOF", zap.String("subId", c.subId))
-				return
-			} else if err != nil {
-				util.Logger().Error("streamingFetch receive error", zap.String("subId", c.subId), zap.Error(err))
-				result = FetchRecords{
-					Err: err,
+			if err != nil && (err == io.EOF) {
+				if err == io.EOF {
+					util.Logger().Info("streamingFetch receive EOF", zap.String("subId", c.subId))
+					return
+				} else if status.Code(err) == codes.Canceled {
+					util.Logger().Info("streamingFetch canceled", zap.String("subId", c.subId))
+					return
+				} else {
+					util.Logger().Error("streamingFetch receive error", zap.String("subId", c.subId), zap.Error(err))
+					result = FetchRecords{
+						Err: err,
+					}
 				}
 			} else {
 				recordSize := len(records.GetReceivedRecords())
