@@ -1,10 +1,11 @@
 package hstream
 
 import (
+	"math/big"
+
 	"github.com/google/btree"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
-	"math/big"
 )
 
 const DEFAULT_SHARDMAP_DEGREE = 32

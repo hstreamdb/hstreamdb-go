@@ -2,6 +2,7 @@ package hstream
 
 import (
 	"fmt"
+
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"

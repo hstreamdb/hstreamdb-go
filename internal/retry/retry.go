@@ -1,10 +1,11 @@
 package retry
 
 import (
+	"time"
+
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"time"
 )
 
 const (

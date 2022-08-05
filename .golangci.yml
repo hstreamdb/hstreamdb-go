@@ -1,0 +1,30 @@
+---
+run:
+  concurrency: 6
+  deadline: 5m
+linters:
+  disable-all: true
+  enable:
+    - bodyclose
+    - deadcode
+    - depguard
+    - exportloopref
+    - gofmt
+    - goimports
+    - goprintffuncname
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - noctx
+    - nolintlint
+    - rowserrcheck
+    - staticcheck
+#    - stylecheck
+    - structcheck
+    - typecheck
+    - unconvert
+    - unused
+    - varcheck
+    - prealloc
+    - predeclared

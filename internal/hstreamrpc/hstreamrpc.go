@@ -2,6 +2,7 @@ package hstreamrpc
 
 import (
 	"context"
+
 	"github.com/hstreamdb/hstreamdb-go/internal/retry"
 
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"

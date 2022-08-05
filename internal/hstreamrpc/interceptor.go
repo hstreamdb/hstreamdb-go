@@ -2,11 +2,12 @@ package hstreamrpc
 
 import (
 	"context"
+	"reflect"
+
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"reflect"
 )
 
 func UnaryClientInterceptor(ctx context.Context, method string, req, reply interface{},
@@ -15,17 +16,17 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 		zap.String("method", method),
 		zap.String("target", cc.Target()),
 	}
-	switch req.(type) {
+	switch req := req.(type) {
 	case *hstreampb.LookupShardRequest:
-		commFields = append(commFields, zap.String("req", req.(*hstreampb.LookupShardRequest).String()))
+		commFields = append(commFields, zap.String("req", req.String()))
 	case *hstreampb.LookupSubscriptionRequest:
-		commFields = append(commFields, zap.String("req", req.(*hstreampb.LookupSubscriptionRequest).String()))
+		commFields = append(commFields, zap.String("req", req.String()))
 	case *hstreampb.Stream:
-		commFields = append(commFields, zap.String("req", req.(*hstreampb.Stream).String()))
+		commFields = append(commFields, zap.String("req", req.String()))
 	case *hstreampb.Subscription:
-		commFields = append(commFields, zap.String("req", req.(*hstreampb.Subscription).String()))
+		commFields = append(commFields, zap.String("req", req.String()))
 	case *hstreampb.AppendRequest:
-		//commFields = append(commFields, zap.String("req", req.(*hstreampb.AppendRequest).String()))
+		//commFields = append(commFields, zap.String("req", req.String()))
 	default:
 	}
 	util.Logger().Debug("unaryRPC", commFields...)

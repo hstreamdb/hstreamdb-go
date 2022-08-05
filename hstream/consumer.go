@@ -2,12 +2,13 @@ package hstream
 
 import (
 	"context"
-	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"io"
 	"sync"
 	"time"
+
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
@@ -133,9 +134,9 @@ func (c *Consumer) StartFetch() chan FetchRecords {
 }
 
 // fetchPendingAcks will collect pending acks from the ack channel. Function will return when:
-//   1. collect MAX_BATCH_ACKIDS: return (ackIds, false)
-//	 2. ACK_COLLECT_TIMEOUT trigger: return (ackIds, false)
-//   3. consumer is stopped and ackChannel is closed: return (ackIds, true)
+//  1. collect MAX_BATCH_ACKIDS: return (ackIds, false)
+//  2. ACK_COLLECT_TIMEOUT trigger: return (ackIds, false)
+//  3. consumer is stopped and ackChannel is closed: return (ackIds, true)
 func (c *Consumer) fetchPendingAcks() ([]*hstreampb.RecordId, bool) {
 	timer := time.NewTimer(ACK_COLLECT_TIMEOUT)
 	ackIds := make([]*hstreampb.RecordId, 0, MAX_BATCH_ACKIDS)
