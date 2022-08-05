@@ -5,6 +5,8 @@ import (
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	"github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/util"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"sync/atomic"
@@ -148,6 +150,27 @@ func (c *HStreamClient) NewShardReader(streamName string, readerId string, shard
 	return reader, err
 }
 
+// DeleteShardReader delete specific shardReader
+func (c *HStreamClient) DeleteShardReader(shardId uint64, readerId string) {
+	addr, err := c.LookupShard(shardId)
+	if err != nil {
+		util.Logger().Error("delete shardReader err", zap.Uint64("shardId", shardId), zap.String("readerId", readerId), zap.String("error", err.Error()))
+		return
+	}
+
+	req := &hstreamrpc.Request{
+		Type: hstreamrpc.DeleteShardReader,
+		Req: &server.DeleteShardReaderRequest{
+			ReaderId: readerId,
+		},
+	}
+	if _, err = c.sendRequest(addr, req); err != nil {
+		util.Logger().Error("delete shardReader err", zap.Uint64("shardId", shardId), zap.String("readerId", readerId), zap.String("error", err.Error()))
+		return
+	}
+	return
+}
+
 func (s *ShardReader) readLoop() {
 	readReq := &hstreamrpc.Request{
 		Type: hstreamrpc.ReadShard,
@@ -215,23 +238,4 @@ func (s *ShardReader) Read(ctx context.Context) ([]Record.ReceivedRecord, error)
 
 func (s *ShardReader) Close() {
 	atomic.StoreUint32(&s.closed, 1)
-}
-
-// DeleteShardReader delete specific shardReader
-func (s *ShardReader) DeleteShardReader() error {
-	addr, err := s.client.LookupShard(s.shardId)
-	if err != nil {
-		return err
-	}
-
-	req := &hstreamrpc.Request{
-		Type: hstreamrpc.DeleteShardReader,
-		Req: &server.DeleteShardReaderRequest{
-			ReaderId: s.readerId,
-		},
-	}
-	if _, err = s.client.sendRequest(addr, req); err != nil {
-		return err
-	}
-	return nil
 }

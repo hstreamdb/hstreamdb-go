@@ -72,7 +72,7 @@ func (s *testShardReaderSuite) TestReadFromRecordId() {
 		hstream.WithShardOffset(hstream.NewRecordOffset(writeRecords[idx])), hstream.WithReaderTimeout(100),
 		hstream.WithMaxRecords(10))
 	s.NoError(err)
-	defer reader.DeleteShardReader()
+	defer s.client.DeleteShardReader(shards[0].ShardId, readerId)
 	defer reader.Close()
 
 	readRecords := make([]Record.ReceivedRecord, 0, totalRecords)
@@ -104,7 +104,7 @@ func (s *testShardReaderSuite) readFromSpecialOffset(offset hstream.ShardOffset)
 	reader, err := s.client.NewShardReader(streamName, readerId, shards[0].ShardId,
 		hstream.WithShardOffset(offset), hstream.WithReaderTimeout(100), hstream.WithMaxRecords(10))
 	s.NoError(err)
-	defer reader.DeleteShardReader()
+	defer s.client.DeleteShardReader(shards[0].ShardId, readerId)
 	defer reader.Close()
 
 	totalRecords := 100
