@@ -2,15 +2,16 @@ package integraion
 
 import (
 	"context"
+	"math/rand"
+	"strconv"
+	"testing"
+	"time"
+
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/suite"
-	"math/rand"
-	"strconv"
-	"testing"
-	"time"
 )
 
 func TestShardReader(t *testing.T) {

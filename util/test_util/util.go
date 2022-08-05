@@ -1,8 +1,9 @@
 package test_util
 
 import (
-	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"sort"
+
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 )
 
 var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"

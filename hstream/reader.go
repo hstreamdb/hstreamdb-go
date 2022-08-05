@@ -2,6 +2,8 @@ package hstream
 
 import (
 	"context"
+	"sync/atomic"
+
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	"github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
@@ -9,7 +11,6 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"sync/atomic"
 )
 
 var (
@@ -168,7 +169,6 @@ func (c *HStreamClient) DeleteShardReader(shardId uint64, readerId string) {
 		util.Logger().Error("delete shardReader err", zap.Uint64("shardId", shardId), zap.String("readerId", readerId), zap.String("error", err.Error()))
 		return
 	}
-	return
 }
 
 func (s *ShardReader) readLoop() {

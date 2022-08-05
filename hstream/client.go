@@ -2,9 +2,10 @@ package hstream
 
 import (
 	"context"
+	"math/rand"
+
 	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
-	"math/rand"
 )
 
 // HStreamClient is the client for the HStreamDB service.

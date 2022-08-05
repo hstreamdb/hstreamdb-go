@@ -1,11 +1,12 @@
 package integraion_test
 
 import (
-	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"math/rand"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/util"

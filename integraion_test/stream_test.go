@@ -2,12 +2,13 @@ package integraion_test
 
 import (
 	"fmt"
-	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"math/rand"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/util"
@@ -159,7 +160,7 @@ func (s *testStreamSuite) TestBatchAppend() {
 	for idx, r := range res {
 		resp, err := r.Ready()
 		s.NoError(err)
-		s.T().Log(fmt.Sprintf("record[%d]=%s", idx, resp.String()))
+		s.T().Logf("record[%d]=%s", idx, resp.String())
 	}
 }
 
