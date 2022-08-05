@@ -290,21 +290,29 @@ func main() {
     if err != nil {
         log.Fatalf("List Shards error: %s", err)
     }
+    
     readerId := "reader"
     reader, err := client.NewShardReader(streamName, readerId, shards[0].ShardId, 
 		hstream.WithShardOffset(hstream.EarliestShardOffset), 
-		hstream.WithReaderTimeout(100))
+		hstream.WithReaderTimeout(100),hstream.WithMaxRecords(10))
+    if err != nil {
+        log.Fatalf("Create shard reader error: %s", err)
+    }
     defer reader.DeleteShardReader()
+    defer reader.Close()
     
     // ------- make sure that data has been written to the target shard ------
-    readRecords := make([]Record.ReceivedRecord, 0, 1000)
+    readRecords := make([]Record.ReceivedRecord, 0, totalRecords)
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
     for {
-		res, _ := reader.Read(10)
-		readRecords = append(readRecords, res...)
-		if len(readRecords) >= 1000 {
-			break
-		}
-	}
+        res, err := reader.Read(ctx)
+        s.NoError(err)
+        readRecords = append(readRecords, res...)
+        if len(readRecords) >= totalRecords {
+            break
+        }
+    }
 }
 ```
 
