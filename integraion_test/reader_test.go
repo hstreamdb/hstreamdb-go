@@ -1,6 +1,7 @@
 package integraion
 
 import (
+	"context"
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/util"
@@ -68,27 +69,24 @@ func (s *testShardReaderSuite) TestReadFromRecordId() {
 
 	readerId := "reader_" + strconv.Itoa(rand.Int())
 	reader, err := s.client.NewShardReader(streamName, readerId, shards[0].ShardId,
-		hstream.WithShardOffset(hstream.NewRecordOffset(writeRecords[idx])), hstream.WithReaderTimeout(100))
+		hstream.WithShardOffset(hstream.NewRecordOffset(writeRecords[idx])), hstream.WithReaderTimeout(100),
+		hstream.WithMaxRecords(10))
 	s.NoError(err)
 	defer reader.DeleteShardReader()
+	defer reader.Close()
 
 	readRecords := make([]Record.ReceivedRecord, 0, totalRecords)
-	timer := time.NewTimer(10 * time.Second)
-	defer timer.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
 	for {
-		select {
-		case <-timer.C:
-			s.T().Fatal("timeout!!!!")
-		default:
-		}
-
-		res, err := reader.Read(10)
+		res, err := reader.Read(ctx)
 		s.NoError(err)
 		readRecords = append(readRecords, res...)
 		if len(readRecords) >= totalRecords-idx {
 			break
 		}
 	}
+
 	s.Equal(totalRecords-idx, len(readRecords))
 }
 
@@ -104,9 +102,10 @@ func (s *testShardReaderSuite) readFromSpecialOffset(offset hstream.ShardOffset)
 
 	readerId := "reader_" + strconv.Itoa(rand.Int())
 	reader, err := s.client.NewShardReader(streamName, readerId, shards[0].ShardId,
-		hstream.WithShardOffset(offset), hstream.WithReaderTimeout(100))
+		hstream.WithShardOffset(offset), hstream.WithReaderTimeout(100), hstream.WithMaxRecords(10))
 	s.NoError(err)
 	defer reader.DeleteShardReader()
+	defer reader.Close()
 
 	totalRecords := 100
 	producer, err := s.client.NewProducer(streamName)
@@ -121,16 +120,10 @@ func (s *testShardReaderSuite) readFromSpecialOffset(offset hstream.ShardOffset)
 	}
 
 	readRecords := make([]Record.ReceivedRecord, 0, totalRecords)
-	timer := time.NewTimer(10 * time.Second)
-	defer timer.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
 	for {
-		select {
-		case <-timer.C:
-			s.T().Fatal("timeout!!!!")
-		default:
-		}
-
-		res, err := reader.Read(10)
+		res, err := reader.Read(ctx)
 		s.NoError(err)
 		readRecords = append(readRecords, res...)
 		if len(readRecords) >= totalRecords {

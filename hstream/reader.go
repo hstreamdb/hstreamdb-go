@@ -1,11 +1,13 @@
 package hstream
 
 import (
+	"context"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	"github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"sync/atomic"
 )
 
 var (
@@ -57,6 +59,11 @@ func (r recordOffset) toShardOffset() *server.ShardOffset {
 	return &server.ShardOffset{Offset: offset}
 }
 
+type shardResult struct {
+	records []Record.ReceivedRecord
+	err     error
+}
+
 // ShardReader is used to read data from the specified shard
 type ShardReader struct {
 	client         *HStreamClient
@@ -66,6 +73,11 @@ type ShardReader struct {
 	shardOffset    ShardOffset
 	timeout        uint32
 	lastSendServer string
+	maxRead        uint32
+	dataChan       chan shardResult
+
+	// closed > 0 means the reader is closed
+	closed uint32
 }
 
 func defaultReader(client *HStreamClient, streamName string, readerId string, shardId uint64) *ShardReader {
@@ -76,6 +88,9 @@ func defaultReader(client *HStreamClient, streamName string, readerId string, sh
 		shardId:     shardId,
 		shardOffset: EarliestShardOffset,
 		timeout:     0,
+		dataChan:    make(chan shardResult, 10),
+		closed:      0,
+		maxRead:     1,
 	}
 }
 
@@ -93,6 +108,14 @@ func WithShardOffset(offset ShardOffset) ShardReaderOpts {
 func WithReaderTimeout(timeout uint32) ShardReaderOpts {
 	return func(reader *ShardReader) {
 		reader.timeout = timeout
+	}
+}
+
+// WithMaxRecords is used to specify the maximum number of records that
+// can be read in a single read.
+func WithMaxRecords(cnt uint32) ShardReaderOpts {
+	return func(reader *ShardReader) {
+		reader.maxRead = cnt
 	}
 }
 
@@ -120,15 +143,36 @@ func (c *HStreamClient) NewShardReader(streamName string, readerId string, shard
 
 	_, err = c.sendRequest(address, req)
 
+	go reader.readLoop()
+
 	return reader, err
 }
 
-// Read read up to maxRecords from a shard
-func (s *ShardReader) Read(maxRecords uint32) ([]Record.ReceivedRecord, error) {
-	return s.read(maxRecords, false)
+func (s *ShardReader) readLoop() {
+	readReq := &hstreamrpc.Request{
+		Type: hstreamrpc.ReadShard,
+		Req: &server.ReadShardRequest{
+			ReaderId:   s.readerId,
+			MaxRecords: s.maxRead,
+		},
+	}
+
+	for {
+		if atomic.LoadUint32(&s.closed) > 0 {
+			close(s.dataChan)
+			return
+		}
+
+		records, err := s.read(readReq, false)
+		result := shardResult{
+			records: records,
+			err:     err,
+		}
+		s.dataChan <- result
+	}
 }
 
-func (s *ShardReader) read(maxRecords uint32, forceLookup bool) ([]Record.ReceivedRecord, error) {
+func (s *ShardReader) read(req *hstreamrpc.Request, forceLookup bool) ([]Record.ReceivedRecord, error) {
 	var addr string
 	var err error
 	if forceLookup || len(s.lastSendServer) == 0 {
@@ -139,18 +183,10 @@ func (s *ShardReader) read(maxRecords uint32, forceLookup bool) ([]Record.Receiv
 		s.lastSendServer = addr
 	}
 
-	readReq := &hstreamrpc.Request{
-		Type: hstreamrpc.ReadShard,
-		Req: &server.ReadShardRequest{
-			ReaderId:   s.readerId,
-			MaxRecords: maxRecords,
-		},
-	}
-
-	res, err := s.client.sendRequest(s.lastSendServer, readReq)
+	res, err := s.client.sendRequest(s.lastSendServer, req)
 	if err != nil {
 		if !forceLookup && status.Code(err) == codes.FailedPrecondition {
-			return s.read(maxRecords, true)
+			return s.read(req, true)
 		}
 		return nil, err
 	}
@@ -165,6 +201,20 @@ func (s *ShardReader) read(maxRecords uint32, forceLookup bool) ([]Record.Receiv
 		readRes = append(readRes, receivedRecord)
 	}
 	return readRes, nil
+}
+
+// Read read records from shard
+func (s *ShardReader) Read(ctx context.Context) ([]Record.ReceivedRecord, error) {
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case res := <-s.dataChan:
+		return res.records, res.err
+	}
+}
+
+func (s *ShardReader) Close() {
+	atomic.StoreUint32(&s.closed, 1)
 }
 
 // DeleteShardReader delete specific shardReader
