@@ -298,7 +298,7 @@ func main() {
     if err != nil {
         log.Fatalf("Create shard reader error: %s", err)
     }
-    defer reader.DeleteShardReader()
+    defer client.DeleteShardReader(shards[0].ShardId, readerId)
     defer reader.Close()
     
     // ------- make sure that data has been written to the target shard ------
