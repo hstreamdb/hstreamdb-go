@@ -5,6 +5,7 @@ import (
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/klauspost/compress/gzip"
 	"go.uber.org/zap"
+	"io"
 )
 
 type GzipCompressor struct {
@@ -23,17 +24,18 @@ func (g *GzipCompressor) GetAlgorithm() CompressionType {
 }
 
 func (g *GzipCompressor) Compress(dst, src []byte) []byte {
-	g.encoder.Reset(bytes.NewBuffer(dst))
+	buffer := bytes.NewBuffer(dst)
+	g.encoder.Reset(buffer)
 	if _, err := g.encoder.Write(src); err != nil {
 		util.Logger().Error("gzip compress error", zap.String("error", err.Error()))
 		return nil
 	}
 	g.encoder.Flush()
-	return dst
+	return buffer.Bytes()
 }
 
 func (g *GzipCompressor) Close() {
-	g.encoder.Close() //TODO implement me
+	g.encoder.Close()
 }
 
 type GzipDeCompressor struct {
@@ -41,10 +43,8 @@ type GzipDeCompressor struct {
 }
 
 func NewGzipDeCompressor() Decompressor {
-	//var writeBuf, readBuf bytes.Buffer
-	zr, _ := gzip.NewReader(nil)
 	return &GzipDeCompressor{
-		decoder: zr,
+		decoder: new(gzip.Reader),
 	}
 }
 
@@ -53,11 +53,12 @@ func (g *GzipDeCompressor) GetAlgorithm() CompressionType {
 }
 
 func (g *GzipDeCompressor) Decompress(dst, src []byte) ([]byte, error) {
-	g.decoder.Reset(bytes.NewBuffer(dst))
-	if _, err := g.decoder.Read(src); err != nil {
+	if err := g.decoder.Reset(bytes.NewBuffer(src)); err != nil {
 		return nil, err
 	}
-	return dst, nil
+	buffer := bytes.NewBuffer(dst)
+	io.Copy(buffer, g.decoder)
+	return buffer.Bytes(), nil
 }
 
 func (g *GzipDeCompressor) Close() {

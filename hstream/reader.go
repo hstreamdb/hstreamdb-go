@@ -2,12 +2,13 @@ package hstream
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"sync/atomic"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
-	"github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -23,25 +24,25 @@ var (
 
 // ShardOffset is used to specify a specific offset for the shardReader.
 type ShardOffset interface {
-	toShardOffset() *server.ShardOffset
+	toShardOffset() *hstreampb.ShardOffset
 }
 
 type earliestShardOffset struct{}
 
-func (e earliestShardOffset) toShardOffset() *server.ShardOffset {
-	offset := server.ShardOffset_SpecialOffset{
-		SpecialOffset: server.SpecialOffset_EARLIEST,
+func (e earliestShardOffset) toShardOffset() *hstreampb.ShardOffset {
+	offset := hstreampb.ShardOffset_SpecialOffset{
+		SpecialOffset: hstreampb.SpecialOffset_EARLIEST,
 	}
-	return &server.ShardOffset{Offset: &offset}
+	return &hstreampb.ShardOffset{Offset: &offset}
 }
 
 type latestShardOffset struct{}
 
-func (e latestShardOffset) toShardOffset() *server.ShardOffset {
-	offset := server.ShardOffset_SpecialOffset{
-		SpecialOffset: server.SpecialOffset_LATEST,
+func (e latestShardOffset) toShardOffset() *hstreampb.ShardOffset {
+	offset := hstreampb.ShardOffset_SpecialOffset{
+		SpecialOffset: hstreampb.SpecialOffset_LATEST,
 	}
-	return &server.ShardOffset{Offset: &offset}
+	return &hstreampb.ShardOffset{Offset: &offset}
 }
 
 type recordOffset Record.RecordId
@@ -52,15 +53,15 @@ func NewRecordOffset(recordId Record.RecordId) ShardOffset {
 	return rid
 }
 
-func (r recordOffset) toShardOffset() *server.ShardOffset {
-	offset := &server.ShardOffset_RecordOffset{
-		RecordOffset: &server.RecordId{
+func (r recordOffset) toShardOffset() *hstreampb.ShardOffset {
+	offset := &hstreampb.ShardOffset_RecordOffset{
+		RecordOffset: &hstreampb.RecordId{
 			ShardId:    r.ShardId,
 			BatchId:    r.BatchId,
 			BatchIndex: r.BatchIndex,
 		},
 	}
-	return &server.ShardOffset{Offset: offset}
+	return &hstreampb.ShardOffset{Offset: offset}
 }
 
 type shardResult struct {
@@ -134,7 +135,7 @@ func (c *HStreamClient) NewShardReader(streamName string, readerId string, shard
 
 	req := &hstreamrpc.Request{
 		Type: hstreamrpc.CreateShardReader,
-		Req: &server.CreateShardReaderRequest{
+		Req: &hstreampb.CreateShardReaderRequest{
 			StreamName:  streamName,
 			ShardId:     shardId,
 			ShardOffset: reader.shardOffset.toShardOffset(),
@@ -164,7 +165,7 @@ func (c *HStreamClient) DeleteShardReader(shardId uint64, readerId string) {
 
 	req := &hstreamrpc.Request{
 		Type: hstreamrpc.DeleteShardReader,
-		Req: &server.DeleteShardReaderRequest{
+		Req: &hstreampb.DeleteShardReaderRequest{
 			ReaderId: readerId,
 		},
 	}
@@ -177,7 +178,7 @@ func (c *HStreamClient) DeleteShardReader(shardId uint64, readerId string) {
 func (s *ShardReader) readLoop() {
 	readReq := &hstreamrpc.Request{
 		Type: hstreamrpc.ReadShard,
-		Req: &server.ReadShardRequest{
+		Req: &hstreampb.ReadShardRequest{
 			ReaderId:   s.readerId,
 			MaxRecords: s.maxRead,
 		},
@@ -202,7 +203,7 @@ func (s *ShardReader) read(req *hstreamrpc.Request, forceLookup bool) ([]Record.
 	var addr string
 	var err error
 	if forceLookup || len(s.lastSendServer) == 0 {
-		addr, err = s.client.LookupShard(s.shardId)
+		addr, err = s.client.lookUpShardReader(s.readerId)
 		if err != nil {
 			return nil, err
 		}
@@ -217,7 +218,7 @@ func (s *ShardReader) read(req *hstreamrpc.Request, forceLookup bool) ([]Record.
 		return nil, err
 	}
 
-	records := res.Resp.(*server.ReadShardResponse).GetReceivedRecords()
+	records := res.Resp.(*hstreampb.ReadShardResponse).GetReceivedRecords()
 	readRes := make([]Record.ReceivedRecord, 0, len(records))
 	for _, record := range records {
 		hstreamReocrds, err := decodeReceivedRecord(record, &s.decompressors)
@@ -249,4 +250,26 @@ func (s *ShardReader) Read(ctx context.Context) ([]Record.ReceivedRecord, error)
 
 func (s *ShardReader) Close() {
 	atomic.StoreUint32(&s.closed, 1)
+}
+
+func (c *HStreamClient) lookUpShardReader(readerId string) (string, error) {
+	address, err := c.randomServer()
+	if err != nil {
+		return "", err
+	}
+
+	req := &hstreamrpc.Request{
+		Type: hstreamrpc.LookupShardReader,
+		Req: &hstreampb.LookupShardReaderRequest{
+			ReaderId: readerId,
+		},
+	}
+
+	var resp *hstreamrpc.Response
+	if resp, err = c.sendRequest(address, req); err != nil {
+		return "", err
+	}
+	node := resp.Resp.(*hstreampb.LookupShardReaderResponse).GetServerNode()
+	util.Logger().Debug("LookupShardReaderResponse", zap.String("readerId", readerId), zap.String("node", node.String()))
+	return fmt.Sprintf("%s:%d", node.GetHost(), node.GetPort()), nil
 }

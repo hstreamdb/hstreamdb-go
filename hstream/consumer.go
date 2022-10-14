@@ -299,7 +299,7 @@ func decodeReceivedRecord(record *hstreampb.ReceivedRecord, decompressors *sync.
 		}
 	}
 	decoder := decompressor.(compression.Decompressor)
-	data := make([]byte, len(batchedRecord.Payload))
+	data := make([]byte, 0, len(batchedRecord.Payload))
 	payloads, err := decoder.Decompress(data, batchedRecord.Payload)
 	if err != nil {
 		return nil, errors.WithMessage(err, "decompress receivedRecord error")
@@ -310,23 +310,5 @@ func decodeReceivedRecord(record *hstreampb.ReceivedRecord, decompressors *sync.
 		return nil, errors.WithMessage(err, "decode batchHStreamRecords error")
 	}
 
-	//res := make([]Record.ReceivedRecord, 0, batchedRecord.BatchSize)
-	//for i := uint32(0); i < batchedRecord.BatchSize; i++ {
-	//	hstreamRecord := batchHStreamRecords.Records[i]
-	//	var rcv Record.ReceivedRecord
-	//	switch hstreamRecord.GetHeader().GetFlag() {
-	//	case hstreampb.HStreamRecordHeader_RAW:
-	//		rcv, err = FromPbRawRecord(recordIds[i], hstreamRecord)
-	//	case hstreampb.HStreamRecordHeader_JSON:
-	//		rcv, err = FromPbHRecord(recordIds[i], hstreamRecord)
-	//	default:
-	//		return nil, errors.Errorf("unknown record type: %s", hstreamRecord.GetHeader().GetFlag())
-	//	}
-	//
-	//	if err != nil {
-	//		return nil, errors.WithMessage(err, fmt.Sprintf("convert hstreamRecord %+v to receivedRecord err", hstreamRecord))
-	//	}
-	//	res = append(res, rcv)
-	//}
 	return batchHStreamRecords.GetRecords(), nil
 }

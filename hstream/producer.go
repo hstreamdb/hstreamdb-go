@@ -580,7 +580,7 @@ func encodeBatchRecord(records []appendEntry, compressor compression.Compressor)
 		return nil, errors.WithMessage(err, "encode batchRecord error")
 	}
 
-	payload := make([]byte, len(bs))
+	payload := make([]byte, 0, len(bs))
 	payload = compressor.Compress(payload, bs)
 	return &hstreampb.BatchedRecord{
 		CompressionType: CompressionTypeToPb(compressor.GetAlgorithm()),
