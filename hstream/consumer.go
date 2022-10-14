@@ -2,6 +2,9 @@ package hstream
 
 import (
 	"context"
+	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 	"io"
 	"sync"
 	"time"
@@ -54,15 +57,17 @@ type Consumer struct {
 	ackChannel   chan Record.RecordId
 
 	streamingCancel context.CancelFunc
+	decompressors   sync.Map
 	waitAck         sync.WaitGroup
 }
 
 func NewConsumer(client *HStreamClient, subId string, consumerName string) *Consumer {
 	return &Consumer{
-		client:       client,
-		subId:        subId,
-		consumerName: consumerName,
-		ackChannel:   make(chan Record.RecordId, 100),
+		client:        client,
+		subId:         subId,
+		consumerName:  consumerName,
+		ackChannel:    make(chan Record.RecordId, 100),
+		decompressors: sync.Map{},
 	}
 }
 
@@ -193,9 +198,11 @@ func (c *Consumer) fetch(cancelCtx context.Context, stream hstreampb.HStreamApi_
 			}
 
 			records, err := stream.Recv()
+			recordIds := records.GetReceivedRecords().GetRecordIds()
+			recordSize := len(recordIds)
 			util.Logger().Debug("receive records from stream",
 				zap.String("subId", c.subId),
-				zap.Int("count", len(records.GetReceivedRecords())))
+				zap.Int("count", recordSize))
 
 			var result FetchRecords
 			if err != nil && (err == io.EOF) {
@@ -210,30 +217,41 @@ func (c *Consumer) fetch(cancelCtx context.Context, stream hstreampb.HStreamApi_
 					result = FetchRecords{
 						Err: err,
 					}
+					c.dataChannel <- result
+					return
+				}
+			}
+
+			hstreamRecords, err := decodeReceivedRecord(records.GetReceivedRecords(), &c.decompressors)
+			if err != nil {
+				util.Logger().Error("streamingFetch decode error", zap.String("subId", c.subId), zap.Error(err))
+				result = FetchRecords{
+					Err: err,
+				}
+				c.dataChannel <- result
+				return
+			}
+
+			res := make([]*FetchResult, 0, recordSize)
+			// FIXME: find a proper way to handle parse error
+			var parseError error
+			for i := 0; i < recordSize; i++ {
+				receivedRecord, err := ReceivedRecordFromPb(hstreamRecords[i], recordIds[i])
+				if err != nil {
+					parseError = err
+					break
+				}
+				fetchResult := newFetchRes(receivedRecord, c.ackChannel)
+				res = append(res, fetchResult)
+			}
+
+			if parseError != nil {
+				result = FetchRecords{
+					Err: parseError,
 				}
 			} else {
-				recordSize := len(records.GetReceivedRecords())
-				res := make([]*FetchResult, 0, recordSize)
-				// FIXME: find a proper way to handle parse error
-				var parseError error
-				for _, record := range records.GetReceivedRecords() {
-					receivedRecord, err := ReceivedRecordFromPb(record)
-					if err != nil {
-						parseError = err
-						break
-					}
-					fetchResult := newFetchRes(receivedRecord, c.ackChannel)
-					res = append(res, fetchResult)
-				}
-
-				if parseError != nil {
-					result = FetchRecords{
-						Err: parseError,
-					}
-				} else {
-					result = FetchRecords{
-						Result: res,
-					}
+				result = FetchRecords{
+					Result: res,
 				}
 			}
 
@@ -250,4 +268,65 @@ func (c *Consumer) handleFetchError(err error) chan FetchRecords {
 	c.dataChannel <- errRes
 	close(c.dataChannel)
 	return c.dataChannel
+}
+
+func decodeReceivedRecord(record *hstreampb.ReceivedRecord, decompressors *sync.Map) ([]*hstreampb.HStreamRecord, error) {
+	batchedRecord := record.GetRecord()
+	if batchedRecord == nil {
+		return nil, nil
+	}
+	if batchedRecord.BatchSize != uint32(len(record.RecordIds)) {
+		return nil, errors.New("BatchedRecord.BatchSize != len(RecordIds), data contaminated")
+	}
+
+	compressionTp := CompressionTypeFromPb(batchedRecord.CompressionType)
+	decompressor, ok := decompressors.Load(compressionTp)
+	if !ok {
+		var newDecoder compression.Decompressor
+		switch compressionTp {
+		case compression.None:
+			newDecoder = compression.NewNoneDeCompressor()
+		case compression.Gzip:
+			newDecoder = compression.NewGzipDeCompressor()
+		case compression.Zstd:
+			newDecoder = compression.NewZstdDeCompressor()
+		}
+
+		var loaded bool
+		if decompressor, loaded = decompressors.LoadOrStore(compressionTp, newDecoder); loaded {
+			// another thread already loaded this provider, so close the one we just initialized
+			newDecoder.Close()
+		}
+	}
+	decoder := decompressor.(compression.Decompressor)
+	data := make([]byte, len(batchedRecord.Payload))
+	payloads, err := decoder.Decompress(data, batchedRecord.Payload)
+	if err != nil {
+		return nil, errors.WithMessage(err, "decompress receivedRecord error")
+	}
+
+	var batchHStreamRecords hstreampb.BatchHStreamRecords
+	if err := proto.Unmarshal(payloads, &batchHStreamRecords); err != nil {
+		return nil, errors.WithMessage(err, "decode batchHStreamRecords error")
+	}
+
+	//res := make([]Record.ReceivedRecord, 0, batchedRecord.BatchSize)
+	//for i := uint32(0); i < batchedRecord.BatchSize; i++ {
+	//	hstreamRecord := batchHStreamRecords.Records[i]
+	//	var rcv Record.ReceivedRecord
+	//	switch hstreamRecord.GetHeader().GetFlag() {
+	//	case hstreampb.HStreamRecordHeader_RAW:
+	//		rcv, err = FromPbRawRecord(recordIds[i], hstreamRecord)
+	//	case hstreampb.HStreamRecordHeader_JSON:
+	//		rcv, err = FromPbHRecord(recordIds[i], hstreamRecord)
+	//	default:
+	//		return nil, errors.Errorf("unknown record type: %s", hstreamRecord.GetHeader().GetFlag())
+	//	}
+	//
+	//	if err != nil {
+	//		return nil, errors.WithMessage(err, fmt.Sprintf("convert hstreamRecord %+v to receivedRecord err", hstreamRecord))
+	//	}
+	//	res = append(res, rcv)
+	//}
+	return batchHStreamRecords.GetRecords(), nil
 }

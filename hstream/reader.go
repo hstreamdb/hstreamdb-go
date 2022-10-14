@@ -2,6 +2,7 @@ package hstream
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
@@ -78,6 +79,7 @@ type ShardReader struct {
 	lastSendServer string
 	maxRead        uint32
 	dataChan       chan shardResult
+	decompressors  sync.Map
 
 	// closed > 0 means the reader is closed
 	closed uint32
@@ -85,15 +87,16 @@ type ShardReader struct {
 
 func defaultReader(client *HStreamClient, streamName string, readerId string, shardId uint64) *ShardReader {
 	return &ShardReader{
-		client:      client,
-		streamName:  streamName,
-		readerId:    readerId,
-		shardId:     shardId,
-		shardOffset: EarliestShardOffset,
-		timeout:     0,
-		dataChan:    make(chan shardResult, 10),
-		closed:      0,
-		maxRead:     1,
+		client:        client,
+		streamName:    streamName,
+		readerId:      readerId,
+		shardId:       shardId,
+		shardOffset:   EarliestShardOffset,
+		timeout:       0,
+		dataChan:      make(chan shardResult, 10),
+		closed:        0,
+		maxRead:       1,
+		decompressors: sync.Map{},
 	}
 }
 
@@ -217,11 +220,19 @@ func (s *ShardReader) read(req *hstreamrpc.Request, forceLookup bool) ([]Record.
 	records := res.Resp.(*server.ReadShardResponse).GetReceivedRecords()
 	readRes := make([]Record.ReceivedRecord, 0, len(records))
 	for _, record := range records {
-		receivedRecord, err := ReceivedRecordFromPb(record)
+		hstreamReocrds, err := decodeReceivedRecord(record, &s.decompressors)
 		if err != nil {
 			return nil, err
 		}
-		readRes = append(readRes, receivedRecord)
+		recordIds := record.GetRecordIds()
+		for i := 0; i < len(recordIds); i++ {
+			receivedRecord, err := ReceivedRecordFromPb(hstreamReocrds[i], recordIds[i])
+			if err != nil {
+				return nil, err
+			}
+			readRes = append(readRes, receivedRecord)
+		}
+
 	}
 	return readRes, nil
 }
