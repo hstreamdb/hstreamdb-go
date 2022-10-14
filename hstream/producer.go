@@ -3,6 +3,9 @@ package hstream
 import (
 	"crypto/md5"
 	"fmt"
+	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"math"
 	"math/big"
 	"strconv"
@@ -167,7 +170,13 @@ func (p *Producer) sendAppend(targetStream, targetKey string, records []appendEn
 		return
 	}
 
-	req := createAppendReq(records, targetStream, shardId)
+	noneCompressor := compression.NewNoneCompressor()
+	payloads, err := encodeBatchRecord(records, noneCompressor)
+	if err != nil {
+		handleBatchAppendError(err, records)
+		return
+	}
+	req := createAppendReq(payloads, targetStream, shardId)
 
 	res, err := p.client.sendRequest(server, req)
 	if err != nil {
@@ -187,14 +196,15 @@ type ProducerOpt func(producer *BatchProducer)
 
 // BatchProducer is a producer that can batch write multiple records to the specified stream.
 type BatchProducer struct {
-	client        *HStreamClient
-	streamName    string
-	batchSize     int
-	maxBatchBytes uint64
-	timeOut       time.Duration
-	isClosed      bool
-	appends       map[uint64]*appender
-	shardMap      *ShardMap
+	client          *HStreamClient
+	streamName      string
+	batchSize       int
+	maxBatchBytes   uint64
+	timeOut         time.Duration
+	isClosed        bool
+	appends         map[uint64]*appender
+	shardMap        *ShardMap
+	compressionType compression.CompressionType
 
 	controller *flowController
 
@@ -204,15 +214,16 @@ type BatchProducer struct {
 
 func newBatchProducer(client *HStreamClient, streamName string, opts ...ProducerOpt) (*BatchProducer, error) {
 	batchProducer := &BatchProducer{
-		streamName:    streamName,
-		client:        client,
-		batchSize:     1,
-		maxBatchBytes: DEFAULT_MAX_BATCHRECORDS_SIZE,
-		timeOut:       DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT,
-		appends:       make(map[uint64]*appender),
-		isClosed:      false,
-		stop:          make(chan struct{}),
-		controller:    nil,
+		streamName:      streamName,
+		client:          client,
+		batchSize:       1,
+		maxBatchBytes:   DEFAULT_MAX_BATCHRECORDS_SIZE,
+		timeOut:         DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT,
+		appends:         make(map[uint64]*appender),
+		isClosed:        false,
+		compressionType: compression.None,
+		stop:            make(chan struct{}),
+		controller:      nil,
 	}
 
 	for _, opt := range opts {
@@ -278,6 +289,13 @@ func WithFlowControl(maxBytes uint64) ProducerOpt {
 	}
 }
 
+// WithCompression set the compression algorithm
+func WithCompression(compressionType compression.CompressionType) ProducerOpt {
+	return func(batchProducer *BatchProducer) {
+		batchProducer.compressionType = compressionType
+	}
+}
+
 // Stop will stop the BatchProducer.
 func (p *BatchProducer) Stop() {
 	p.isClosed = true
@@ -321,7 +339,7 @@ func (p *BatchProducer) Append(record Record.HStreamRecord) AppendResult {
 		return entry.res
 	}
 
-	appender := newAppender(p.client, p.streamName, shard, p.batchSize, p.maxBatchBytes, p.timeOut, p.stop, p.controller)
+	appender := newAppender(p, shard)
 	p.appends[shard.ShardId] = appender
 	go appender.batchAppendLoop()
 	p.lock.Unlock()
@@ -342,26 +360,38 @@ type appender struct {
 	// isClosed == 1 means closed
 	isClosed int32
 
+	compressor compression.Compressor
+
 	controller *flowController
 
 	dataCh chan appendEntry
 	stop   chan struct{}
 }
 
-func newAppender(client *HStreamClient, stream string, shard *Shard, batchSize int, maxRecordSize uint64,
-	timeout time.Duration, stopCh chan struct{}, controller *flowController) *appender {
+func newAppender(p *BatchProducer, shard *Shard) *appender {
+	var compressor compression.Compressor
+	switch p.compressionType {
+	case compression.None:
+		compressor = compression.NewNoneCompressor()
+	case compression.Gzip:
+		compressor = compression.NewGzipCompressor()
+	case compression.Zstd:
+		compressor = compression.NewZstdCompressor()
+	}
+
 	return &appender{
-		client:        client,
-		targetStream:  stream,
+		client:        p.client,
+		targetStream:  p.streamName,
 		targetShard:   shard,
-		timeOut:       timeout,
-		batchSize:     batchSize,
-		maxRecordSize: maxRecordSize,
-		buffer:        make([]appendEntry, 0, batchSize),
-		dataCh:        make(chan appendEntry, batchSize),
-		stop:          stopCh,
+		timeOut:       p.timeOut,
+		batchSize:     p.batchSize,
+		maxRecordSize: p.maxBatchBytes,
+		buffer:        make([]appendEntry, 0, p.batchSize),
+		dataCh:        make(chan appendEntry, p.batchSize),
+		stop:          p.stop,
 		isClosed:      0,
-		controller:    controller,
+		compressor:    compressor,
+		controller:    p.controller,
 	}
 }
 
@@ -453,10 +483,14 @@ func (a *appender) release(size uint64) {
 }
 
 func (a *appender) sendAppend(records []appendEntry, forceLookUp bool) {
-	req := createAppendReq(records, a.targetStream, a.targetShard.ShardId)
+	batchedRecords, err := encodeBatchRecord(records, a.compressor)
+	if err != nil {
+		handleBatchAppendError(err, records)
+		return
+	}
+	req := createAppendReq(batchedRecords, a.targetStream, a.targetShard.ShardId)
 
 	var server string
-	var err error
 	if !forceLookUp && len(a.lastSendServer) != 0 {
 		server = a.lastSendServer
 	} else {
@@ -482,17 +516,13 @@ func (a *appender) sendAppend(records []appendEntry, forceLookUp bool) {
 	setAppendResponse(res, records)
 }
 
-func createAppendReq(records []appendEntry, targetStream string, targetShard uint64) *hstreamrpc.Request {
-	reqRecords := make([]*hstreampb.HStreamRecord, 0, len(records))
-	for _, record := range records {
-		reqRecords = append(reqRecords, record.value)
-	}
+func createAppendReq(records *hstreampb.BatchedRecord, targetStream string, targetShard uint64) *hstreamrpc.Request {
 	return &hstreamrpc.Request{
 		Type: hstreamrpc.Append,
 		Req: &hstreampb.AppendRequest{
 			StreamName: targetStream,
 			ShardId:    targetShard,
-			Records:    reqRecords,
+			Records:    records,
 		},
 	}
 }
@@ -536,4 +566,26 @@ func calculateShardRangeKey(shardKey string) string {
 	res := new(big.Int)
 	res.SetBytes(h[:])
 	return res.String()
+}
+
+func encodeBatchRecord(records []appendEntry, compressor compression.Compressor) (*hstreampb.BatchedRecord, error) {
+	reqRecords := make([]*hstreampb.HStreamRecord, 0, len(records))
+	for _, record := range records {
+		reqRecords = append(reqRecords, record.value)
+	}
+
+	batchHStreamRecords := &hstreampb.BatchHStreamRecords{Records: reqRecords}
+	bs, err := proto.Marshal(batchHStreamRecords)
+	if err != nil {
+		return nil, errors.WithMessage(err, "encode batchRecord error")
+	}
+
+	payload := make([]byte, 0, len(bs))
+	payload = compressor.Compress(payload, bs)
+	return &hstreampb.BatchedRecord{
+		CompressionType: CompressionTypeToPb(compressor.GetAlgorithm()),
+		PublishTime:     timestamppb.Now(),
+		BatchSize:       uint32(len(records)),
+		Payload:         payload,
+	}, nil
 }

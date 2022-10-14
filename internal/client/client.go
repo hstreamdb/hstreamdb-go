@@ -24,7 +24,6 @@ import (
 
 const DIALTIMEOUT = 5 * time.Second
 const REQUESTTIMEOUT = 5 * time.Second
-const DEFAULTKEY = "__default__"
 
 // Client is a client that sends RPC to HStreamDB server.
 // It should not be used after calling Close().
@@ -131,7 +130,6 @@ func (c *RPCClient) getConnection(address string) (*grpc.ClientConn, error) {
 	}
 	c.RUnlock()
 
-	// FIXME: check if the address is in the server list before create a new connection ???
 	return c.createConnection(address)
 }
 

@@ -2,11 +2,11 @@ package hstream
 
 import (
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
+	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -26,19 +26,14 @@ func RecordIdFromPb(pb *hstreampb.RecordId) Record.RecordId {
 	}
 }
 
-func ReceivedRecordFromPb(record *hstreampb.ReceivedRecord) (Record.ReceivedRecord, error) {
-	hstreamRecord := &hstreampb.HStreamRecord{}
-	if err := proto.Unmarshal(record.GetRecord(), hstreamRecord); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal hstream record")
-	}
-
-	switch hstreamRecord.GetHeader().GetFlag() {
+func ReceivedRecordFromPb(record *hstreampb.HStreamRecord, rid *hstreampb.RecordId) (Record.ReceivedRecord, error) {
+	switch record.GetHeader().GetFlag() {
 	case hstreampb.HStreamRecordHeader_RAW:
-		return FromPbRawRecord(record.GetRecordId(), hstreamRecord)
+		return FromPbRawRecord(rid, record)
 	case hstreampb.HStreamRecordHeader_JSON:
-		return FromPbHRecord(record.GetRecordId(), hstreamRecord)
+		return FromPbHRecord(rid, record)
 	default:
-		return nil, errors.Errorf("unknown record type: %s", hstreamRecord.GetHeader().GetFlag())
+		return nil, errors.Errorf("unknown record type: %s", record.GetHeader().GetFlag())
 	}
 }
 
@@ -197,6 +192,30 @@ func RecordTypeToPb(r Record.RecordType) (flag hstreampb.HStreamRecordHeader_Fla
 		flag = hstreampb.HStreamRecordHeader_RAW
 	case Record.HRECORD:
 		flag = hstreampb.HStreamRecordHeader_JSON
+	}
+	return
+}
+
+func CompressionTypeToPb(c compression.CompressionType) (tp hstreampb.CompressionType) {
+	switch c {
+	case compression.None:
+		tp = hstreampb.CompressionType_None
+	case compression.Gzip:
+		tp = hstreampb.CompressionType_Gzip
+	case compression.Zstd:
+		tp = hstreampb.CompressionType_Zstd
+	}
+	return
+}
+
+func CompressionTypeFromPb(c hstreampb.CompressionType) (tp compression.CompressionType) {
+	switch c {
+	case hstreampb.CompressionType_None:
+		tp = compression.None
+	case hstreampb.CompressionType_Gzip:
+		tp = compression.Gzip
+	case hstreampb.CompressionType_Zstd:
+		tp = compression.Zstd
 	}
 	return
 }

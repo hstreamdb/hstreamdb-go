@@ -1,6 +1,7 @@
 package integraion_test
 
 import (
+	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -114,7 +115,7 @@ func (s *testSubscriptionSuite) TestFetch() {
 	}()
 	s.NoError(err)
 
-	producer, err := s.client.NewBatchProducer(streamName, hstream.WithBatch(5, 1000000))
+	producer, err := s.client.NewBatchProducer(streamName, hstream.WithBatch(5, 1000000), hstream.WithCompression(compression.Zstd))
 	s.NoError(err)
 
 	totalRecords := 100

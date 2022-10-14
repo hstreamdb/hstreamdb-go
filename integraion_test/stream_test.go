@@ -93,14 +93,19 @@ func (s *testStreamSuite) TestAppendHRecord() {
 
 	producer, err := s.client.NewProducer(streamName)
 	s.NoError(err)
-	res := make([]hstream.AppendResult, 0, 100)
-	payload := map[string]interface{}{
-		"key":       "key-1",
-		"value":     []byte(fmt.Sprintf("test-value-%s-%d", "key-1", 1)),
-		"timestamp": time.Now().UnixNano(),
-	}
-	hRecord, _ := Record.NewHStreamHRecord("key-1", payload)
-	for i := 0; i < 100; i++ {
+
+	recordSize := 100
+	res := make([]hstream.AppendResult, 0, recordSize)
+	records := make([]map[string]interface{}, recordSize)
+	for i := 0; i < recordSize; i++ {
+		key := fmt.Sprintf("key-%d", i)
+		payload := map[string]interface{}{
+			"key":       key,
+			"value":     []byte(fmt.Sprintf("test-value-%s-%d", key, 1)),
+			"timestamp": time.Now().UnixNano(),
+		}
+		records = append(records, payload)
+		hRecord, _ := Record.NewHStreamHRecord(key, payload)
 		r := producer.Append(hRecord)
 		res = append(res, r)
 	}
