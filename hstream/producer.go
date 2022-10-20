@@ -86,12 +86,9 @@ type shardInfoCache struct {
 
 func newShardInfoCache(shards []Shard) *shardInfoCache {
 	mp := NewShardMap(DEFAULT_SHARDMAP_DEGREE)
-	for _, v := range shards {
-		mp.ReplaceOrInsert(&v)
+	for i := 0; i < len(shards); i += 1 {
+		mp.ReplaceOrInsert(&shards[i])
 	}
-	mp.mp.Ascend(func(shard *Shard) bool {
-		return true
-	})
 	return &shardInfoCache{
 		shardMap:   mp,
 		serverInfo: make(map[uint64]string, len(shards)),
@@ -414,9 +411,7 @@ func (a *appender) fetchBatchData() ([]appendEntry, uint64) {
 	// FIXME: consider reuse timer ???
 	timer := time.NewTimer(a.timeOut)
 	defer func() {
-		if !timer.Stop() {
-			<-timer.C
-		}
+		timer.Stop()
 	}()
 	totalPayloadBytes := uint64(0)
 
