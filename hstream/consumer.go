@@ -124,18 +124,41 @@ func (c *Consumer) StartFetch() chan FetchRecords {
 		for {
 			ackIds, terminate := c.fetchPendingAcks()
 			if len(ackIds) != 0 {
-				c.sendAckReq(stream, ackIds)
-				for i := 0; i < len(ackIds); i++ {
-					ackIds[i] = nil
-				}
-				ackIds = ackIds[:0]
+				sendAcks(c, stream, ackIds)
 			}
 			if terminate {
+				c.flushAckChannel(stream)
+				util.Logger().Info("subscription terminate, stop handle acks", zap.String("subscription", c.subId))
 				break
 			}
 		}
 	}()
 	return c.dataChannel
+}
+
+func sendAcks(c *Consumer, stream hstreampb.HStreamApi_StreamingFetchClient, ackIds []*hstreampb.RecordId) {
+	c.sendAckReq(stream, ackIds)
+	util.Logger().Debug("send ack to subscription", zap.String("subscription", c.subId), zap.Int("ack counts", len(ackIds)))
+	for i := 0; i < len(ackIds); i++ {
+		ackIds[i] = nil
+	}
+	ackIds = ackIds[:0]
+}
+
+// flushAckChannel will flush all unsend ackIds to server before consumer closed.
+func (c *Consumer) flushAckChannel(stream hstreampb.HStreamApi_StreamingFetchClient) {
+	ackIds := make([]*hstreampb.RecordId, 0, 2*MAX_BATCH_ACKIDS)
+	util.Logger().Info("flush unsend ackIds before consumer close", zap.Int("ackIds count", len(c.ackChannel)))
+
+	for id := range c.ackChannel {
+		ackIds = append(ackIds, RecordIdToPb(id))
+		if len(ackIds) >= 2*MAX_BATCH_ACKIDS {
+			sendAcks(c, stream, ackIds)
+		}
+	}
+	if len(ackIds) != 0 {
+		sendAcks(c, stream, ackIds)
+	}
 }
 
 // fetchPendingAcks will collect pending acks from the ack channel. Function will return when:
@@ -170,6 +193,7 @@ func (c *Consumer) fetchPendingAcks() ([]*hstreampb.RecordId, bool) {
 				default:
 				}
 			}
+			util.Logger().Debug("ack channel wait timeout", zap.Int("number of ackIds to send", len(ackIds)))
 			return ackIds, false
 		}
 	}
