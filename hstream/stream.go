@@ -2,15 +2,11 @@ package hstream
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/pkg/errors"
 
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 )
-
-const DEFAULTAPPENDTIMEOUT = time.Second * 5
 
 type Stream struct {
 	StreamName        string
@@ -100,17 +96,39 @@ func (c *HStreamClient) CreateStream(streamName string, opts ...StreamOpts) erro
 	return err
 }
 
+// DeleteStreamOpts is the option for DeleteStream.
+type DeleteStreamOpts func()
+
+var (
+	ForceDelete     = false
+	IgnoreNoneExist = false
+)
+
+func EnableForceDelete() {
+	ForceDelete = true
+}
+
+func EnableIgnoreNoneExist() {
+	IgnoreNoneExist = true
+}
+
 // DeleteStream will send a DeleteStreamRPC to HStreamDB server and wait for response.
-func (c *HStreamClient) DeleteStream(streamName string) error {
+func (c *HStreamClient) DeleteStream(streamName string, opts ...DeleteStreamOpts) error {
 	address, err := c.randomServer()
 	if err != nil {
 		return err
 	}
 
+	for _, opt := range opts {
+		opt()
+	}
+
 	req := &hstreamrpc.Request{
 		Type: hstreamrpc.DeleteStream,
 		Req: &hstreampb.DeleteStreamRequest{
-			StreamName: streamName,
+			StreamName:     streamName,
+			Force:          ForceDelete,
+			IgnoreNonExist: IgnoreNoneExist,
 		},
 	}
 
