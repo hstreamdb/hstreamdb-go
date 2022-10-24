@@ -156,6 +156,7 @@ func (c *HStreamClient) NewShardReader(streamName string, readerId string, shard
 }
 
 // DeleteShardReader delete specific shardReader
+// FIXME: Uniform interface: the delete operation should return an error ?
 func (c *HStreamClient) DeleteShardReader(shardId uint64, readerId string) {
 	addr, err := c.LookupShard(shardId)
 	if err != nil {
