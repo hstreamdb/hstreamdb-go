@@ -2,6 +2,7 @@ package hstream
 
 import (
 	"context"
+	"github.com/hstreamdb/hstreamdb-go/hstream/security"
 	"math/rand"
 
 	"github.com/hstreamdb/hstreamdb-go/internal/client"
@@ -13,8 +14,37 @@ type HStreamClient struct {
 	client.Client
 }
 
-func NewHStreamClient(address string) (*HStreamClient, error) {
-	cli, err := client.NewRPCClient(address)
+// TLSOps set tls configurations
+type TLSOps func(cfg *security.TLSAuth)
+
+// WithCaCert set ca path
+func WithCaCert(ca string) TLSOps {
+	return func(cfg *security.TLSAuth) {
+		cfg.ClusterSSLCA = ca
+	}
+}
+
+// WithClientCert set client cert path
+func WithClientCert(cert string) TLSOps {
+	return func(cfg *security.TLSAuth) {
+		cfg.ClusterSSLCert = cert
+	}
+}
+
+// WithClientKey set client key path
+func WithClientKey(key string) TLSOps {
+	return func(cfg *security.TLSAuth) {
+		cfg.ClusterSSLKey = key
+	}
+}
+
+func NewHStreamClient(address string, tlsOps ...TLSOps) (*HStreamClient, error) {
+	tlsCfg := security.TLSAuth{}
+	for _, cfg := range tlsOps {
+		cfg(&tlsCfg)
+	}
+
+	cli, err := client.NewRPCClient(address, tlsCfg)
 	if err != nil {
 		return nil, err
 	}
