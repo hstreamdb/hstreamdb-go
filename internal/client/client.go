@@ -2,6 +2,9 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"github.com/hstreamdb/hstreamdb-go/hstream/security"
+	"google.golang.org/grpc/credentials"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,6 +51,7 @@ type RPCClient struct {
 	sync.RWMutex
 	connections map[string]*grpc.ClientConn
 	serverInfo  serverList
+	tlsCfg      *tls.Config
 	// closed == 0 means client is closed
 	closed int32
 }
@@ -96,11 +100,19 @@ func (c *RPCClient) isClosed() bool {
 }
 
 // NewRPCClient TODO：use connection pool for each address
-func NewRPCClient(address string) (*RPCClient, error) {
+func NewRPCClient(address string, tlsCfg security.TLSAuth) (*RPCClient, error) {
 	cli := &RPCClient{
 		connections: make(map[string]*grpc.ClientConn),
 		closed:      1,
 		serverInfo:  strings.Split(address, ","),
+	}
+
+	if len(tlsCfg.ClusterSSLCA) != 0 {
+		cfg, err := tlsCfg.ToTLSConfig()
+		if err != nil {
+			return nil, err
+		}
+		cli.tlsCfg = cfg
 	}
 
 	for _, addr := range cli.serverInfo {
@@ -154,9 +166,14 @@ func (c *RPCClient) createConnection(address string) (*grpc.ClientConn, error) {
 // when the function return success, the connection is ready to use.
 func (c *RPCClient) connect(address string) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), DIALTIMEOUT)
-	conn, err := grpc.DialContext(ctx, address, grpc.WithTransportCredentials(insecure.NewCredentials()),
+	tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
+	if c.tlsCfg != nil {
+		tlsOpt = grpc.WithTransportCredentials(credentials.NewTLS(c.tlsCfg))
+	}
+	conn, err := grpc.DialContext(ctx, address, tlsOpt,
 		grpc.WithUnaryInterceptor(
-			grpc_middleware.ChainUnaryClient(hstreamrpc.UnaryClientInterceptor, grpc_retry.UnaryClientInterceptor())))
+			grpc_middleware.ChainUnaryClient(hstreamrpc.UnaryClientInterceptor, grpc_retry.UnaryClientInterceptor())),
+	)
 	if err != nil {
 		cancel()
 		return nil, errors.Wrapf(err, "failed to dial %s", address)
