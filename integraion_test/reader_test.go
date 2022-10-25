@@ -9,8 +9,6 @@ import (
 
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
-	"github.com/hstreamdb/hstreamdb-go/util"
-	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -20,20 +18,20 @@ func TestShardReader(t *testing.T) {
 
 type testShardReaderSuite struct {
 	suite.Suite
-	serverUrl string
-	client    *hstream.HStreamClient
+	serverUrl  string
+	client     *hstream.HStreamClient
+	streamName string
 }
 
 func (s *testShardReaderSuite) SetupTest() {
-	var err error
-	s.serverUrl = test_util.ServerUrl
-	s.client, err = hstream.NewHStreamClient(s.serverUrl)
-	util.SetLogLevel(util.DEBUG)
+	streamName := "test_stream_" + strconv.Itoa(rand.Int())
+	err := client.CreateStream(streamName)
 	s.NoError(err)
+	s.streamName = streamName
 }
 
 func (s *testShardReaderSuite) TearDownTest() {
-	s.client.Close()
+	client.DeleteStream(s.streamName, hstream.EnableForceDelete)
 }
 
 func (s *testShardReaderSuite) TestReadFromEarliest() {
@@ -45,17 +43,11 @@ func (s *testShardReaderSuite) TestReadFromLatest() {
 }
 
 func (s *testShardReaderSuite) TestReadFromRecordId() {
-	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName)
-	defer func() {
-		_ = s.client.DeleteStream(streamName)
-	}()
-	s.NoError(err)
-	shards, err := s.client.ListShards(streamName)
+	shards, err := client.ListShards(s.streamName)
 	s.NoError(err)
 
 	totalRecords := 100
-	producer, err := s.client.NewProducer(streamName)
+	producer, err := client.NewProducer(s.streamName)
 	s.NoError(err)
 	writeRecords := make([]Record.RecordId, 0, totalRecords)
 	rawRecord, _ := Record.NewHStreamRawRecord("key-1", []byte("value-1"))
@@ -69,11 +61,12 @@ func (s *testShardReaderSuite) TestReadFromRecordId() {
 	idx := rand.Intn(totalRecords)
 
 	readerId := "reader_" + strconv.Itoa(rand.Int())
-	reader, err := s.client.NewShardReader(streamName, readerId, shards[0].ShardId,
-		hstream.WithShardOffset(hstream.NewRecordOffset(writeRecords[idx])), hstream.WithReaderTimeout(100),
+	reader, err := client.NewShardReader(s.streamName, readerId, shards[0].ShardId,
+		hstream.WithShardOffset(hstream.NewRecordOffset(writeRecords[idx])),
+		hstream.WithReaderTimeout(100),
 		hstream.WithMaxRecords(10))
 	s.NoError(err)
-	defer s.client.DeleteShardReader(shards[0].ShardId, readerId)
+	defer client.DeleteShardReader(shards[0].ShardId, readerId)
 	defer reader.Close()
 
 	readRecords := make([]Record.ReceivedRecord, 0, totalRecords)
@@ -92,24 +85,18 @@ func (s *testShardReaderSuite) TestReadFromRecordId() {
 }
 
 func (s *testShardReaderSuite) readFromSpecialOffset(offset hstream.ShardOffset) {
-	streamName := "test_stream_" + strconv.Itoa(rand.Int())
-	err := s.client.CreateStream(streamName)
-	defer func() {
-		_ = s.client.DeleteStream(streamName)
-	}()
-	s.NoError(err)
-	shards, err := s.client.ListShards(streamName)
+	shards, err := client.ListShards(s.streamName)
 	s.NoError(err)
 
 	readerId := "reader_" + strconv.Itoa(rand.Int())
-	reader, err := s.client.NewShardReader(streamName, readerId, shards[0].ShardId,
+	reader, err := client.NewShardReader(s.streamName, readerId, shards[0].ShardId,
 		hstream.WithShardOffset(offset), hstream.WithReaderTimeout(100), hstream.WithMaxRecords(10))
 	s.NoError(err)
-	defer s.client.DeleteShardReader(shards[0].ShardId, readerId)
+	defer client.DeleteShardReader(shards[0].ShardId, readerId)
 	defer reader.Close()
 
 	totalRecords := 100
-	producer, err := s.client.NewProducer(streamName)
+	producer, err := client.NewProducer(s.streamName)
 	s.NoError(err)
 	writeRecords := make([]Record.RecordId, 0, totalRecords)
 	rawRecord, _ := Record.NewHStreamRawRecord("key-1", []byte("value-1"))
