@@ -64,7 +64,7 @@ func (c *HStreamClient) reqToRandomServer(req *hstreamrpc.Request) (*hstreamrpc.
 
 // sendRequest is a helper function to wrap SendRequest function with timeout context.
 func (c *HStreamClient) sendRequest(address string, req *hstreamrpc.Request) (*hstreamrpc.Response, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), client.DIALTIMEOUT)
+	ctx, cancel := context.WithTimeout(context.Background(), client.DialTimeout)
 	defer cancel()
 	return c.SendRequest(ctx, address, req)
 }
