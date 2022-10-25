@@ -25,8 +25,11 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const DIALTIMEOUT = 5 * time.Second
-const REQUESTTIMEOUT = 5 * time.Second
+const (
+	DialTimeout    = 5 * time.Second
+	RequestTimeout = 5 * time.Second
+	addressPrefix  = "hstream://"
+)
 
 // Client is a client that sends RPC to HStreamDB server.
 // It should not be used after calling Close().
@@ -101,6 +104,8 @@ func (c *RPCClient) isClosed() bool {
 
 // NewRPCClient TODO：use connection pool for each address
 func NewRPCClient(address string, tlsCfg security.TLSAuth) (*RPCClient, error) {
+	address = strings.TrimSpace(address)
+	address = strings.TrimPrefix(address, addressPrefix)
 	cli := &RPCClient{
 		connections: make(map[string]*grpc.ClientConn),
 		closed:      1,
@@ -165,7 +170,7 @@ func (c *RPCClient) createConnection(address string) (*grpc.ClientConn, error) {
 // connect will call grpc.DialContext with specified server address.
 // when the function return success, the connection is ready to use.
 func (c *RPCClient) connect(address string) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), DIALTIMEOUT)
+	ctx, cancel := context.WithTimeout(context.Background(), DialTimeout)
 	tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
 	if c.tlsCfg != nil {
 		tlsOpt = grpc.WithTransportCredentials(credentials.NewTLS(c.tlsCfg))
@@ -182,7 +187,7 @@ func (c *RPCClient) connect(address string) (*grpc.ClientConn, error) {
 
 	//// wait connection state convert to ready
 	// FIXME: use grpc.WithBlock() to wait connection ready. This part of the code is currently reserved for debugging purposes
-	waitCtx, waitCancel := context.WithTimeout(context.Background(), DIALTIMEOUT)
+	waitCtx, waitCancel := context.WithTimeout(context.Background(), DialTimeout)
 	conn.WaitForStateChange(waitCtx, connectivity.Idle)
 	defer waitCancel()
 	for {
@@ -201,7 +206,7 @@ func (c *RPCClient) connect(address string) (*grpc.ClientConn, error) {
 
 // requestServerInfo sends a describeCluster RPC to the specific server and returns information about all servers in current cluster.
 func (c *RPCClient) requestServerInfo(address string) (serverList, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), REQUESTTIMEOUT)
+	ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout)
 	defer cancel()
 	res, err := c.SendRequest(ctx, address, &hstreamrpc.Request{Type: hstreamrpc.DescribeCluster, Req: &emptypb.Empty{}})
 	if err != nil {
