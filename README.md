@@ -16,7 +16,7 @@ Go Client for HStreamDB
 
 ## Installation
 
-**Go 1.18** or later is required.
+**Go 1.19** or later is required.
 
 Add the package to your project dependencies (go.mod).
 
@@ -70,6 +70,14 @@ func main() {
 	}
 	for _, stream := range streams {
 		log.Printf("Stream: %+v\n", stream)
+	}
+	
+	// Delete stream
+	err := client.DeleteStream("testStream", 
+		hstream.EnableForceDelete, 
+		hstream.EnableIgnoreNoneExist)
+	if err != nil {
+		log.Fatalf("Delete stream error: %s", err)
 	}
 }
 ```
@@ -172,9 +180,14 @@ import (
 func main() {
 	//------------- connect to server and create related stream first --------------------
 	producer, err := client.NewBatchProducer("testStream",
-		hstream.WithBatch(10, 1000), 
+		// optional: set batch size and max batch bytes trigger
+		hstream.WithBatch(10, 1000),
+		// optional: set timeout trigger
 		hstream.TimeOut(-1), 
-		hstream.WithFlowControl(80 * 1024 * 1024))
+		// optional: set client compression
+		hstream.WithCompression(compression.Zstd), 
+		// optional: set flow control
+		hstream.WithFlowControl(80 * 1024 * 1024)) 
 	defer producer.Stop()
 
 	keys := []string{"test-key1", "test-key2", "test-key3"}
