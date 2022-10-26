@@ -29,11 +29,11 @@ func (f *flowController) Acquire(need uint64) {
 	defer f.cond.L.Unlock()
 	if f.outStandingBytes >= need {
 		f.outStandingBytes -= need
-		util.Logger().Info("acquire bytes success", zap.Int("need", int(need)), zap.Int("remained", int(f.outStandingBytes)))
+		util.Logger().Debug("acquire bytes success", zap.Int("need", int(need)), zap.Int("remained", int(f.outStandingBytes)))
 		return
 	}
 
-	util.Logger().Info("wait", zap.Int("need", int(need)), zap.Int("remained", int(f.outStandingBytes)))
+	util.Logger().Debug("wait", zap.Int("need", int(need)), zap.Int("remained", int(f.outStandingBytes)))
 	f.waitingList = append(f.waitingList, need)
 	for len(f.waitingList) != 0 && f.outStandingBytes < f.waitingList[0] {
 		f.cond.Wait()
@@ -49,6 +49,6 @@ func (f *flowController) Release(release uint64) {
 	if f.outStandingBytes > f.maxOutStandingBytes {
 		f.outStandingBytes = f.maxOutStandingBytes
 	}
-	util.Logger().Info("release bytes", zap.Int("need", int(release)), zap.Int("remained", int(f.outStandingBytes)))
+	util.Logger().Debug("release bytes", zap.Int("need", int(release)), zap.Int("remained", int(f.outStandingBytes)))
 	f.cond.Signal()
 }

@@ -428,7 +428,7 @@ func (a *appender) fetchBatchData() uint64 {
 			}
 		case <-timer.C:
 			size := len(a.buffer)
-			util.Logger().Debug("Timeout!!!!!!!", zap.Int("length of buffer", size))
+			util.Logger().Debug("batch appender timeout trigger", zap.Int("length of buffer", size))
 			if size == 0 {
 				return 0
 			}
@@ -506,7 +506,10 @@ func (a *appender) sendAppend(records []appendEntry, forceLookUp bool) {
 	if !forceLookUp && len(a.lastSendServer) != 0 {
 		server = a.lastSendServer
 	} else {
-		util.Logger().Debug("cache miss", zap.String("stream", a.targetStream), zap.Uint64("shardId", a.targetShard.ShardId), zap.String("lastServer", a.lastSendServer))
+		util.Logger().Debug("cache miss",
+			zap.String("stream", a.targetStream),
+			zap.Uint64("shardId", a.targetShard.ShardId),
+			zap.String("lastServer", a.lastSendServer))
 		if server, err = a.client.LookupShard(a.targetShard.ShardId); err != nil {
 			handleBatchAppendError(err, records)
 			return
