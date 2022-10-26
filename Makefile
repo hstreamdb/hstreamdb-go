@@ -18,4 +18,7 @@ clean:
 fmt:
 	gofmt -s -w -l `find . -name '*.go' -type f ! -path '*/gen-proto/*' -print`
 
-.PHONY: clean fmt all gen
+test:
+	go test -gcflags=-l -race ${TEST_FLAGS} ./...
+
+.PHONY: clean fmt all gen test

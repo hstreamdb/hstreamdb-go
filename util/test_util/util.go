@@ -1,7 +1,9 @@
 package test_util
 
 import (
+	"fmt"
 	"sort"
+	"time"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 )
@@ -44,4 +46,47 @@ func RecordIdComparatorCompare(a, b RecordIdComparator) bool {
 		}
 	}
 	return true
+}
+
+func GenerateBatchHRecord(keySize, recordSize int) map[string][]Record.HStreamRecord {
+	res := make(map[string][]Record.HStreamRecord, keySize)
+	for i := 0; i < keySize; i++ {
+		key := fmt.Sprintf("key-%d", i)
+		hRecords := GenerateHRecordWithKey(key, recordSize)
+		res[key] = hRecords
+	}
+	return res
+}
+
+func GenerateBatchRawRecord(keySize, recordSize int) map[string][]Record.HStreamRecord {
+	res := make(map[string][]Record.HStreamRecord, keySize)
+	for i := 0; i < keySize; i++ {
+		key := fmt.Sprintf("key-%d", i)
+		hRecords := GenerateRawRecordWithKey(key, recordSize)
+		res[key] = hRecords
+	}
+	return res
+}
+
+func GenerateHRecordWithKey(key string, recordSize int) []Record.HStreamRecord {
+	payloads := make([]Record.HStreamRecord, 0, recordSize)
+	for i := 0; i < recordSize; i++ {
+		payload := map[string]interface{}{
+			"key":       key,
+			"value":     []byte(fmt.Sprintf("test-value-%s-%d", key, 1)),
+			"timestamp": time.Now().UnixNano(),
+		}
+		hRecord, _ := Record.NewHStreamHRecord(key, payload)
+		payloads = append(payloads, hRecord)
+	}
+	return payloads
+}
+
+func GenerateRawRecordWithKey(key string, recordSize int) []Record.HStreamRecord {
+	payloads := make([]Record.HStreamRecord, 0, recordSize)
+	for i := 0; i < recordSize; i++ {
+		rawRecord, _ := Record.NewHStreamRawRecord(key, []byte(fmt.Sprintf("value-%d", i)))
+		payloads = append(payloads, rawRecord)
+	}
+	return payloads
 }

@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"math"
 	"math/big"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,8 +24,9 @@ import (
 )
 
 const (
-	DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT = 10 * time.Second
-	DEFAULT_MAX_BATCHRECORDS_SIZE       = 1024 * 1024 // 1MB
+	DefaultBatchProducerFlushTimeout = 100 * time.Millisecond
+	DefaultMaxBatchRecordsSize       = 1024 * 1024 // 1MB
+	DefaultBatchRecordsCount         = 100
 )
 
 type appendEntry struct {
@@ -198,7 +198,7 @@ type BatchProducer struct {
 	batchSize       int
 	maxBatchBytes   uint64
 	timeOut         time.Duration
-	isClosed        bool
+	isClosed        uint32
 	appends         map[uint64]*appender
 	shardMap        *ShardMap
 	compressionType compression.CompressionType
@@ -213,11 +213,11 @@ func newBatchProducer(client *HStreamClient, streamName string, opts ...Producer
 	batchProducer := &BatchProducer{
 		streamName:      streamName,
 		client:          client,
-		batchSize:       1,
-		maxBatchBytes:   DEFAULT_MAX_BATCHRECORDS_SIZE,
-		timeOut:         DEFAULT_BATCHPRODUCER_FLUSH_TIMEOUT,
+		batchSize:       DefaultBatchRecordsCount,
+		maxBatchBytes:   DefaultMaxBatchRecordsSize,
+		timeOut:         DefaultBatchProducerFlushTimeout,
 		appends:         make(map[uint64]*appender),
-		isClosed:        false,
+		isClosed:        0,
 		compressionType: compression.None,
 		stop:            make(chan struct{}),
 		controller:      nil,
@@ -295,10 +295,16 @@ func WithCompression(compressionType compression.CompressionType) ProducerOpt {
 
 // Stop will stop the BatchProducer.
 func (p *BatchProducer) Stop() {
-	p.isClosed = true
+	p.lock.Lock()
+	defer p.lock.Unlock()
+
+	if !atomic.CompareAndSwapUint32(&p.isClosed, 0, 1) {
+		return
+	}
 	close(p.stop)
+	// wait appender flush
 	for _, appender := range p.appends {
-		appender.Close()
+		<-appender.waitFlushCh
 	}
 }
 
@@ -346,14 +352,15 @@ func (p *BatchProducer) Append(record Record.HStreamRecord) AppendResult {
 }
 
 type appender struct {
-	client         *HStreamClient
-	targetStream   string
-	targetShard    *Shard
-	timeOut        time.Duration
-	batchSize      int
-	maxRecordSize  uint64
-	buffer         []appendEntry
-	lastSendServer string
+	client            *HStreamClient
+	targetStream      string
+	targetShard       *Shard
+	timeOut           time.Duration
+	batchSize         int
+	maxRecordSize     uint64
+	buffer            []appendEntry
+	totalPayloadBytes uint64
+	lastSendServer    string
 	// isClosed == 1 means closed
 	isClosed int32
 
@@ -361,8 +368,9 @@ type appender struct {
 
 	controller *flowController
 
-	dataCh chan appendEntry
-	stop   chan struct{}
+	dataCh      chan appendEntry
+	stop        chan struct{}
+	waitFlushCh chan struct{}
 }
 
 func newAppender(p *BatchProducer, shard *Shard) *appender {
@@ -386,6 +394,7 @@ func newAppender(p *BatchProducer, shard *Shard) *appender {
 		buffer:        make([]appendEntry, 0, p.batchSize),
 		dataCh:        make(chan appendEntry, p.batchSize),
 		stop:          p.stop,
+		waitFlushCh:   make(chan struct{}),
 		isClosed:      0,
 		compressor:    compressor,
 		controller:    p.controller,
@@ -393,71 +402,79 @@ func newAppender(p *BatchProducer, shard *Shard) *appender {
 }
 
 func (a *appender) Close() {
-	if atomic.LoadInt32(&a.isClosed) == 1 {
+	if !atomic.CompareAndSwapInt32(&a.isClosed, 0, 1) {
 		return
 	}
 	close(a.dataCh)
-	atomic.StoreInt32(&a.isClosed, 1)
-	// flush unsend records
-	// TODO: Maybe it's worth checking if there are any messages that were previously
-	// blocked from being sent before deciding whether to send them, otherwise it
-	// could lead to a messy sequence?
-	if len(a.buffer) != 0 {
-		a.sendAppend(a.buffer, false)
-	}
 }
 
-func (a *appender) fetchBatchData() ([]appendEntry, uint64) {
+func (a *appender) fetchBatchData() uint64 {
 	// FIXME: consider reuse timer ???
 	timer := time.NewTimer(a.timeOut)
 	defer func() {
 		timer.Stop()
 	}()
-	totalPayloadBytes := uint64(0)
 
 	for {
 		select {
-		case record := <-a.dataCh:
+		case record, ok := <-a.dataCh:
+			if !ok {
+				return a.totalPayloadBytes
+			}
 			a.buffer = append(a.buffer, record)
-			totalPayloadBytes += uint64(len(record.value.Payload))
-			if len(a.buffer) >= a.batchSize || totalPayloadBytes >= a.maxRecordSize {
-				size := util.Min(a.batchSize, len(a.buffer))
-				res := make([]appendEntry, size)
-				copy(res, a.buffer)
-				a.resetBuffer()
-				return res, totalPayloadBytes
+			a.totalPayloadBytes += uint64(len(record.value.Payload))
+			if len(a.buffer) >= a.batchSize || a.totalPayloadBytes >= a.maxRecordSize {
+				return a.totalPayloadBytes
 			}
 		case <-timer.C:
-			util.Logger().Debug("Timeout!!!!!!!", zap.String("length of buffer", strconv.Itoa(len(a.buffer))))
 			size := len(a.buffer)
+			util.Logger().Debug("Timeout!!!!!!!", zap.Int("length of buffer", size))
 			if size == 0 {
-				return nil, 0
+				return 0
 			}
-			res := make([]appendEntry, size)
-			copy(res, a.buffer)
-			a.resetBuffer()
-			return res, totalPayloadBytes
-		case <-a.stop:
-			return nil, 0
+			return a.totalPayloadBytes
 		}
 	}
 }
 
 func (a *appender) batchAppendLoop() {
 	util.Logger().Info("batchAppendLoop", zap.Uint64("shardId", a.targetShard.ShardId))
-	for {
-		if atomic.LoadInt32(&a.isClosed) == 1 {
-			return
-		}
+	breakFlag := false
+	for !breakFlag {
+		select {
+		case <-a.stop:
+			util.Logger().Info("appender receive stop signal",
+				zap.String("target stream", a.targetShard.StreamName),
+				zap.Uint64("target shardId", a.targetShard.ShardId))
+			breakFlag = true
+			a.Close()
+		default:
+			payloadSize := a.fetchBatchData()
+			if payloadSize == 0 {
+				continue
+			}
 
-		records, payloadSize := a.fetchBatchData()
-		if len(records) == 0 {
-			continue
+			a.acquire(payloadSize)
+			a.sendAppend(a.buffer, false)
+			a.resetBuffer()
+			a.release(payloadSize)
 		}
+	}
 
-		a.acquire(payloadSize)
-		a.sendAppend(records, false)
-		a.release(payloadSize)
+	a.flush()
+}
+
+func (a *appender) flush() {
+	defer close(a.waitFlushCh)
+	for record := range a.dataCh {
+		a.buffer = append(a.buffer, record)
+		a.totalPayloadBytes += uint64(len(record.value.Payload))
+		if len(a.buffer) >= a.batchSize || a.totalPayloadBytes >= a.maxRecordSize {
+			a.acquire(a.totalPayloadBytes)
+			a.sendAppend(a.buffer, false)
+			a.resetBuffer()
+			a.release(a.totalPayloadBytes)
+		}
 	}
 }
 
@@ -532,6 +549,7 @@ func setAppendResponse(res *hstreamrpc.Response, records []appendEntry) {
 
 func (a *appender) resetBuffer() {
 	a.buffer = a.buffer[:0]
+	a.totalPayloadBytes = 0
 }
 
 func buildAppendEntry(streamName, key string, record Record.HStreamRecord) appendEntry {

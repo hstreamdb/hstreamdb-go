@@ -1,11 +1,10 @@
 package integraion
 
 import (
-	"testing"
-
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/suite"
+	"testing"
 )
 
 func TestAdmin(t *testing.T) {

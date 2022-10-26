@@ -1,18 +1,16 @@
 package integraion
 
 import (
-	"fmt"
 	"github.com/google/uuid"
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
-	"github.com/hstreamdb/hstreamdb-go/util"
+	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"sort"
 	"sync"
 	"testing"
-	"time"
 )
 
 const (
@@ -29,10 +27,8 @@ type readWriteSuite struct {
 }
 
 func (r *readWriteSuite) SetupTest() {
-	util.SetLogLevel(util.DEBUG)
 	streamName := readWriteTestPrifx + "stream_" + uuid.New().String()
-	err := client.CreateStream(streamName, hstream.WithShardCount(2))
-	//err := client.CreateStream(streamName)
+	err := client.CreateStream(streamName, hstream.WithShardCount(5))
 	r.NoError(err)
 	r.streamName = streamName
 }
@@ -50,25 +46,25 @@ func (r *readWriteSuite) TestAppendRawRecord() {
 }
 
 func (r *readWriteSuite) TestBatchAppendHRecord() {
-	testBatchProducer(r.T(), r.streamName, hRecordTp, 10, 1000, hstream.WithBatch(10, 1000))
+	testBatchProducer(r.T(), r.streamName, hRecordTp, 20, 10000, hstream.WithBatch(200, 4096))
 }
 
 func (r *readWriteSuite) TestBatchAppendRawRecord() {
-	testBatchProducer(r.T(), r.streamName, rawRecordTp, 10, 1000, hstream.WithBatch(10, 1000))
+	testBatchProducer(r.T(), r.streamName, rawRecordTp, 20, 10000, hstream.WithBatch(200, 4096))
 }
 
 func (r *readWriteSuite) TestBatchAppendWithTimeout() {
-	testBatchProducer(r.T(), r.streamName, rawRecordTp, 10, 1000, hstream.TimeOut(10))
+	testBatchProducer(r.T(), r.streamName, rawRecordTp, 20, 10000, hstream.TimeOut(100))
 }
 
 func (r *readWriteSuite) TestBatchAppendWithGzip() {
-	testBatchProducer(r.T(), r.streamName, rawRecordTp, 10, 1000,
-		hstream.WithBatch(10, 1000), hstream.WithCompression(compression.Gzip))
+	testBatchProducer(r.T(), r.streamName, rawRecordTp, 20, 10000,
+		hstream.WithBatch(200, 4096), hstream.WithCompression(compression.Gzip))
 }
 
 func (r *readWriteSuite) TestBatchAppendWithZstd() {
-	testBatchProducer(r.T(), r.streamName, rawRecordTp, 10, 1000,
-		hstream.WithBatch(10, 1000), hstream.WithCompression(compression.Zstd))
+	testBatchProducer(r.T(), r.streamName, rawRecordTp, 20, 10000,
+		hstream.WithBatch(200, 4096), hstream.WithCompression(compression.Zstd))
 }
 
 func (r *readWriteSuite) TestConsumeFromLatest() {
@@ -118,9 +114,9 @@ func testBatchProducer(t *testing.T, streamName string, tp payloadType, keySize,
 	var payloads map[string][]Record.HStreamRecord
 	switch tp {
 	case hRecordTp:
-		payloads = generateBatchHRecord(keySize, payloadSize)
+		payloads = test_util.GenerateBatchHRecord(keySize, payloadSize)
 	case rawRecordTp:
-		payloads = generateBatchRawRecord(keySize, payloadSize)
+		payloads = test_util.GenerateBatchRawRecord(keySize, payloadSize)
 	}
 	verifyBatchProducer(t, producer, streamName, payloads)
 }
@@ -218,52 +214,9 @@ func consumeRecords(t *testing.T, subId string, recordSize int) []string {
 }
 
 func generateHRecord(recordSize int) []Record.HStreamRecord {
-	return generateHRecordWithKey("key-1", recordSize)
+	return test_util.GenerateHRecordWithKey("key-1", recordSize)
 }
 
 func generateRawRecord(recordSize int) []Record.HStreamRecord {
-	return generateRawRecordWithKey("key-1", recordSize)
-}
-
-func generateHRecordWithKey(key string, recordSize int) []Record.HStreamRecord {
-	payloads := make([]Record.HStreamRecord, 0, recordSize)
-	for i := 0; i < recordSize; i++ {
-		payload := map[string]interface{}{
-			"key":       key,
-			"value":     []byte(fmt.Sprintf("test-value-%s-%d", key, 1)),
-			"timestamp": time.Now().UnixNano(),
-		}
-		hRecord, _ := Record.NewHStreamHRecord(key, payload)
-		payloads = append(payloads, hRecord)
-	}
-	return payloads
-}
-
-func generateRawRecordWithKey(key string, recordSize int) []Record.HStreamRecord {
-	payloads := make([]Record.HStreamRecord, 0, recordSize)
-	for i := 0; i < recordSize; i++ {
-		rawRecord, _ := Record.NewHStreamRawRecord(key, []byte(fmt.Sprintf("value-%d", i)))
-		payloads = append(payloads, rawRecord)
-	}
-	return payloads
-}
-
-func generateBatchHRecord(keySize, recordSize int) map[string][]Record.HStreamRecord {
-	res := make(map[string][]Record.HStreamRecord, keySize)
-	for i := 0; i < keySize; i++ {
-		key := fmt.Sprintf("key-%d", i)
-		hRecords := generateHRecordWithKey(key, recordSize)
-		res[key] = hRecords
-	}
-	return res
-}
-
-func generateBatchRawRecord(keySize, recordSize int) map[string][]Record.HStreamRecord {
-	res := make(map[string][]Record.HStreamRecord, keySize)
-	for i := 0; i < keySize; i++ {
-		key := fmt.Sprintf("key-%d", i)
-		hRecords := generateRawRecordWithKey(key, recordSize)
-		res[key] = hRecords
-	}
-	return res
+	return test_util.GenerateRawRecordWithKey("key-1", recordSize)
 }
