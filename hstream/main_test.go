@@ -1,12 +1,12 @@
 package hstream
 
 import (
-	"github.com/hstreamdb/hstreamdb-go/util"
-	"go.uber.org/zap"
 	"os"
 	"testing"
 
+	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/goleak"
+	"go.uber.org/zap"
 )
 
 type mainWrapper struct {
@@ -33,7 +33,7 @@ func (mw *mainWrapper) Run() int {
 		os.Exit(1)
 	}
 	defer testClient.Close()
-	//util.SetLogLevel(util.DEBUG)
+	// util.SetLogLevel(util.DEBUG)
 
 	return mw.m.Run()
 }

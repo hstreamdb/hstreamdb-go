@@ -1,38 +1,41 @@
-name: check fmt and build
+name: CI
 
 on:
   push:
     branches: [main]
-
   pull_request:
-    branches: [main]
 
 jobs:
-  check-go-fmt-build:
+  build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        go-version: ["1.19"]
     steps:
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.19.x
       - uses: actions/checkout@v3
         with:
           submodules: "recursive"
-
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go-version }}
-
       - name: install protobuf
         run: |
           sudo apt-get -y install protobuf-compiler libprotobuf-dev
           go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-      - name: check go fmt
-        run: |
-          make fmt && \
-          git diff-index --exit-code HEAD
-
       - name: check go build
         run: |
           make all
+
+  golangci-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v3.1.0
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-go@v3
+        with:
+          go-version: 1.19.x
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3.3.0
+        with:
+          version: v1.49.0
+          args: --verbose

@@ -2,9 +2,9 @@ package hstream
 
 import (
 	"context"
-	"github.com/hstreamdb/hstreamdb-go/hstream/security"
 	"math/rand"
 
+	"github.com/hstreamdb/hstreamdb-go/hstream/security"
 	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 )
