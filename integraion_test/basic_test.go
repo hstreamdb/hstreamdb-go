@@ -1,13 +1,14 @@
 package integraion
 
 import (
+	"math/rand"
+	"testing"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/stretchr/testify/require"
-	"math/rand"
-	"testing"
-	"time"
 )
 
 const (

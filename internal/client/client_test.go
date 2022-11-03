@@ -1,9 +1,10 @@
 package client
 
 import (
+	"testing"
+
 	"github.com/hstreamdb/hstreamdb-go/hstream/security"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestParseUrl(t *testing.T) {

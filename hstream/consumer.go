@@ -2,21 +2,20 @@ package hstream
 
 import (
 	"context"
-	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
-	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 	"io"
 	"sync"
 	"time"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
-
+	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 const (

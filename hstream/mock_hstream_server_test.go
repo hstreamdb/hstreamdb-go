@@ -3,6 +3,9 @@ package hstream
 import (
 	"context"
 	"fmt"
+	"net"
+	"time"
+
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/pkg/errors"
@@ -10,8 +13,6 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
-	"net"
-	"time"
 )
 
 type hacker func(req proto.Message) (resp proto.Message, err error)

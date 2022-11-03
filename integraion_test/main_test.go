@@ -1,13 +1,13 @@
 package integraion
 
 import (
-	"github.com/hstreamdb/hstreamdb-go/hstream"
-	"github.com/hstreamdb/hstreamdb-go/util"
-	"go.uber.org/zap"
 	"os"
 	"testing"
 
+	"github.com/hstreamdb/hstreamdb-go/hstream"
+	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/goleak"
+	"go.uber.org/zap"
 )
 
 var serverUrl = "localhost:6580"
@@ -27,7 +27,7 @@ func (mw *mainWrapper) Run() int {
 		util.Logger().Error("create client err", zap.Error(err))
 		os.Exit(1)
 	}
-	//util.SetLogLevel(util.DEBUG)
+	// util.SetLogLevel(util.DEBUG)
 	return mw.m.Run()
 }
 

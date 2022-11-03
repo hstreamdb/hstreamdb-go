@@ -2,10 +2,10 @@ package hstream
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
 
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
+	"github.com/pkg/errors"
 )
 
 type Stream struct {

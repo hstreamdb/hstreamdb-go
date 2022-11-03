@@ -1,6 +1,10 @@
 package integraion
 
 import (
+	"sort"
+	"sync"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
@@ -8,9 +12,6 @@ import (
 	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"sort"
-	"sync"
-	"testing"
 )
 
 const (

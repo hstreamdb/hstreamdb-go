@@ -148,7 +148,7 @@ func HStreamRecordToPb(r Record.HStreamRecord) (*hstreampb.HStreamRecord, error)
 	return nil, nil
 }
 
-//func recordHeaderToPb(r *Record.RecordHeader) *hstreampb.HStreamRecordHeader {
+// func recordHeaderToPb(r *Record.RecordHeader) *hstreampb.HStreamRecordHeader {
 //	pb := &hstreampb.HStreamRecordHeader{
 //		Key:  r.Key,
 //		Flag: Record.RecordTypeToPb(r.Flag),

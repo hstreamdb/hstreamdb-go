@@ -29,7 +29,7 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 		//commFields = append(commFields, zap.String("req", req.String()))
 	default:
 	}
-	//util.Logger().Debug("unaryRPC", commFields...)
+	util.Logger().Debug("unaryRPC", commFields...)
 
 	ctx1 := context.Background()
 	if err := invoker(ctx1, method, req, reply, cc, opts...); err != nil {

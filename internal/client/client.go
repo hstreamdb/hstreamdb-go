@@ -3,8 +3,6 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"github.com/hstreamdb/hstreamdb-go/hstream/security"
-	"google.golang.org/grpc/credentials"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,7 +11,7 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_retry "github.com/grpc-ecosystem/go-grpc-middleware/retry"
-
+	"github.com/hstreamdb/hstreamdb-go/hstream/security"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
@@ -21,6 +19,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
