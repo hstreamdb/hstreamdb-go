@@ -23,6 +23,10 @@ function cluster_down() {
   echo "===> cluster down"
 }
 
-cluster_up
+function restart_cluster() {
+  cluster_down
+  cluster_up
+}
+
+restart_cluster
 go clean -testcache && go test -v -gcflags=-l -race -timeout=5m ../
-cluster_down
