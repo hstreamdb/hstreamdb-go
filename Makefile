@@ -19,6 +19,9 @@ fmt:
 	gofmt -s -w -l `find . -name '*.go' -type f ! -path '*/gen-proto/*' -print`
 
 test:
-	go test -gcflags=-l -race ${TEST_FLAGS} ./...
+	go test $(shell go list ./... | grep -v "/integraion_test*" ) -gcflags=-l -race ${TEST_FLAGS}
 
-.PHONY: clean fmt all gen test
+integration_test:
+	cd integraion_test/resource && ./integration_test.sh
+
+.PHONY: clean fmt all gen test integration_test

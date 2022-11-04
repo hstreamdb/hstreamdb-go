@@ -1,16 +1,14 @@
 package integraion
 
 import (
-	"testing"
-
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/suite"
 )
 
-func TestAdmin(t *testing.T) {
-	suite.Run(t, new(testAdminSuite))
-}
+//func TestAdmin(t *testing.T) {
+//	suite.Run(t, new(testAdminSuite))
+//}
 
 type testAdminSuite struct {
 	suite.Suite

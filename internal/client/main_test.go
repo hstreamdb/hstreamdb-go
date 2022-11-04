@@ -29,7 +29,7 @@ type mainWrapper struct {
 
 func (mw *mainWrapper) Run() int {
 	var err error
-	server, err = startMockHStreamService(1, "127.0.0.1", 7580)
+	server, err = startMockHStreamService(1, "127.0.0.1", 9580)
 	if err != nil {
 		util.Logger().Error("create mock server err", zap.Error(err))
 		os.Exit(1)
@@ -50,9 +50,9 @@ type mockServer struct {
 func (s *mockServer) DescribeCluster(ctx context.Context, req *emptypb.Empty) (*hstreampb.DescribeClusterResponse, error) {
 	return &hstreampb.DescribeClusterResponse{
 		ServerNodes: []*hstreampb.ServerNode{
-			{Id: 1, Host: "127.0.0.1", Port: 7580},
-			{Id: 1, Host: "127.0.0.2", Port: 7581},
-			{Id: 1, Host: "127.0.0.3", Port: 7582},
+			{Id: 1, Host: "127.0.0.1", Port: 9580},
+			{Id: 1, Host: "127.0.0.2", Port: 9581},
+			{Id: 1, Host: "127.0.0.3", Port: 9582},
 		},
 	}, nil
 }
