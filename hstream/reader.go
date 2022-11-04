@@ -10,6 +10,7 @@ import (
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -156,12 +157,10 @@ func (c *HStreamClient) NewShardReader(streamName string, readerId string, shard
 }
 
 // DeleteShardReader delete specific shardReader
-// FIXME: Uniform interface: the delete operation should return an error ?
-func (c *HStreamClient) DeleteShardReader(shardId uint64, readerId string) {
-	addr, err := c.LookupShard(shardId)
+func (c *HStreamClient) DeleteShardReader(shardId uint64, readerId string) error {
+	addr, err := c.lookUpShardReader(readerId)
 	if err != nil {
-		util.Logger().Error("lookup shardReader err", zap.Uint64("shardId", shardId), zap.String("readerId", readerId), zap.String("error", err.Error()))
-		return
+		return errors.WithMessage(err, fmt.Sprintf("lookup shardReader err, shardId %d, readerId %s, err: %s", shardId, readerId, err.Error()))
 	}
 
 	req := &hstreamrpc.Request{
@@ -171,9 +170,9 @@ func (c *HStreamClient) DeleteShardReader(shardId uint64, readerId string) {
 		},
 	}
 	if _, err = c.sendRequest(addr, req); err != nil {
-		util.Logger().Error("delete shardReader err", zap.Uint64("shardId", shardId), zap.String("readerId", readerId), zap.String("error", err.Error()))
-		return
+		return errors.WithMessage(err, fmt.Sprintf("delete shardReader err, shardId %d, readerId %s, err: %s", shardId, readerId, err.Error()))
 	}
+	return nil
 }
 
 func (s *ShardReader) readLoop() {
