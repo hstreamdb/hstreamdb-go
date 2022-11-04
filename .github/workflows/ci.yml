@@ -5,37 +5,115 @@ on:
     branches: [main]
   pull_request:
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/setup-go@v3
-        with:
-          go-version: 1.19.x
-      - uses: actions/checkout@v3
-        with:
-          submodules: "recursive"
-      - name: install protobuf
-        run: |
-          sudo apt-get -y install protobuf-compiler libprotobuf-dev
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-      - name: check go build
-        run: |
-          make all
+env:
+  GO_VERSION: 1.19.x
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
   golangci-lint:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v3.1.0
-        with:
-          fetch-depth: 1
       - uses: actions/setup-go@v3
         with:
-          go-version: 1.19.x
+          go-version: ${{ env.GO_VERSION }}
+      - uses: actions/checkout@v3.1.0
+        with:
+          fetch-depth: "recursive"
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3.3.0
         with:
           version: v1.49.0
           args: --verbose
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/Library/Caches/go-build
+            ~\AppData\Local\go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Install protobuf
+        run: |
+          sudo apt-get -y install protobuf-compiler libprotobuf-dev
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - name: Build
+        run: |
+          make all
+
+  unit-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Set up environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/Library/Caches/go-build
+            ~\AppData\Local\go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Run unit tests
+        run: make test
+
+  integration-tests:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Set up environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Check out code
+        uses: actions/checkout@v3
+        with:
+          submodules: "recursive"
+      - name: Cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+            ~/Library/Caches/go-build
+            ~\AppData\Local\go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      - name: Install Docker compose
+        env:
+          DOCKER_COMPOSE_VERSION: v2.12.2
+        run: sudo curl -L "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+      - name: Run integration tests
+        run: make integration_test
