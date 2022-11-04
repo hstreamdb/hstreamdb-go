@@ -236,7 +236,8 @@ func TestCreateAndDeleteReader(t *testing.T) {
 			reader, err := client.NewShardReader(streamName, readerId, shardId, tc.options...)
 			defer func() {
 				if tc.shouldSuccess {
-					client.DeleteShardReader(shardId, readerId)
+					err = client.DeleteShardReader(shardId, readerId)
+					require.NoError(t, err)
 				}
 			}()
 
