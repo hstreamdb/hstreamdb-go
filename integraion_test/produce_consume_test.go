@@ -70,20 +70,19 @@ func (r *readWriteSuite) TestBatchAppendWithZstd() {
 
 func (r *readWriteSuite) TestConsumeFromLatest() {
 	producer, err := client.NewProducer(r.streamName)
-	r.NoError(err)
-
+	require.NoError(r.T(), err)
 	n := 10
 	payloads := generateRawRecord(n)
 	produce(r.T(), producer, payloads)
 
 	subId := readWriteTestPrifx + "sub_" + uuid.New().String()
 	err = client.CreateSubscription(subId, r.streamName)
-	r.NoError(err)
+	require.NoError(r.T(), err)
 	defer client.DeleteSubscription(subId, true)
 
 	afterRids := produce(r.T(), producer, payloads)
 	consumedRids := consumeRecords(r.T(), subId, n)
-	r.Equal(afterRids, consumedRids)
+	require.Equal(r.T(), afterRids, consumedRids)
 }
 
 type payloadType int8

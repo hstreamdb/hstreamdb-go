@@ -160,7 +160,7 @@ func (c *HStreamClient) NewShardReader(streamName string, readerId string, shard
 func (c *HStreamClient) DeleteShardReader(shardId uint64, readerId string) {
 	addr, err := c.LookupShard(shardId)
 	if err != nil {
-		util.Logger().Error("delete shardReader err", zap.Uint64("shardId", shardId), zap.String("readerId", readerId), zap.String("error", err.Error()))
+		util.Logger().Error("lookup shardReader err", zap.Uint64("shardId", shardId), zap.String("readerId", readerId), zap.String("error", err.Error()))
 		return
 	}
 

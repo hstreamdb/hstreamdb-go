@@ -46,12 +46,12 @@ func TestCreateAndDeleteStream(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
+			//t.Parallel()
 			streamName := testStreamPrefix + uuid.New().String()
 			err := client.CreateStream(streamName, tc.options...)
 			defer func() {
 				if tc.shouldSuccess {
-					err = client.DeleteStream(streamName)
+					err = client.DeleteStream(streamName, hstream.EnableForceDelete)
 					require.NoError(t, err)
 				}
 			}()
@@ -75,11 +75,12 @@ func TestListStreams(t *testing.T) {
 	}
 	defer func() {
 		for _, streamName := range streams {
-			_ = client.DeleteStream(streamName)
+			_ = client.DeleteStream(streamName, hstream.EnableForceDelete)
 		}
 	}()
 
 	res, err := client.ListStreams()
+	require.Equal(t, len(streams), len(res), "the count of listed streams doesn't match the count of created")
 	require.NoError(t, err)
 
 	for _, stream := range res {
@@ -116,7 +117,7 @@ func TestCreateAndDeleteSub(t *testing.T) {
 	streamName := testStreamPrefix + "sub_test_stream"
 	err := client.CreateStream(streamName)
 	require.NoError(t, err)
-	defer client.DeleteStream(streamName)
+	defer client.DeleteStream(streamName, hstream.EnableForceDelete)
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -142,7 +143,7 @@ func TestListSubscriptions(t *testing.T) {
 	streamName := testStreamPrefix + uuid.New().String()
 	err := client.CreateStream(streamName)
 	require.NoError(t, err)
-	defer client.DeleteStream(streamName)
+	defer client.DeleteStream(streamName, hstream.EnableForceDelete)
 
 	subCnt := 5
 	subs := make([]string, 0, subCnt)
@@ -171,7 +172,7 @@ func TestCreateAndDeleteReader(t *testing.T) {
 	streamName := testStreamPrefix + uuid.New().String()
 	err := client.CreateStream(streamName)
 	require.NoError(t, err)
-	defer client.DeleteStream(streamName)
+	defer client.DeleteStream(streamName, hstream.EnableForceDelete)
 
 	producer, err := client.NewProducer(streamName)
 	require.NoError(t, err)
