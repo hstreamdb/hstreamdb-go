@@ -28,7 +28,9 @@ type HStreamApiClient interface {
 	// Stream APIs
 	CreateStream(ctx context.Context, in *Stream, opts ...grpc.CallOption) (*Stream, error)
 	DeleteStream(ctx context.Context, in *DeleteStreamRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetStream(ctx context.Context, in *GetStreamRequest, opts ...grpc.CallOption) (*GetStreamResponse, error)
 	ListStreams(ctx context.Context, in *ListStreamsRequest, opts ...grpc.CallOption) (*ListStreamsResponse, error)
+	ListStreamsWithPrefix(ctx context.Context, in *ListStreamsWithPrefixRequest, opts ...grpc.CallOption) (*ListStreamsResponse, error)
 	LookupShard(ctx context.Context, in *LookupShardRequest, opts ...grpc.CallOption) (*LookupShardResponse, error)
 	Append(ctx context.Context, in *AppendRequest, opts ...grpc.CallOption) (*AppendResponse, error)
 	// Shard APIs
@@ -39,13 +41,17 @@ type HStreamApiClient interface {
 	DeleteShardReader(ctx context.Context, in *DeleteShardReaderRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// Subscribe APIs
 	CreateSubscription(ctx context.Context, in *Subscription, opts ...grpc.CallOption) (*Subscription, error)
+	GetSubscription(ctx context.Context, in *GetSubscriptionRequest, opts ...grpc.CallOption) (*GetSubscriptionResponse, error)
 	ListSubscriptions(ctx context.Context, in *ListSubscriptionsRequest, opts ...grpc.CallOption) (*ListSubscriptionsResponse, error)
+	ListSubscriptionsWithPrefix(ctx context.Context, in *ListSubscriptionsWithPrefixRequest, opts ...grpc.CallOption) (*ListSubscriptionsResponse, error)
+	ListConsumers(ctx context.Context, in *ListConsumersRequest, opts ...grpc.CallOption) (*ListConsumersResponse, error)
 	CheckSubscriptionExist(ctx context.Context, in *CheckSubscriptionExistRequest, opts ...grpc.CallOption) (*CheckSubscriptionExistResponse, error)
 	DeleteSubscription(ctx context.Context, in *DeleteSubscriptionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	LookupSubscription(ctx context.Context, in *LookupSubscriptionRequest, opts ...grpc.CallOption) (*LookupSubscriptionResponse, error)
 	StreamingFetch(ctx context.Context, opts ...grpc.CallOption) (HStreamApi_StreamingFetchClient, error)
 	// Cluster APIs
 	DescribeCluster(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*DescribeClusterResponse, error)
+	LookupResource(ctx context.Context, in *LookupResourceRequest, opts ...grpc.CallOption) (*ServerNode, error)
 	// Admin Command
 	SendAdminCommand(ctx context.Context, in *AdminCommandRequest, opts ...grpc.CallOption) (*AdminCommandResponse, error)
 	// Stats
@@ -58,6 +64,7 @@ type HStreamApiClient interface {
 	// e.g., insert, create, show/list, select(without emit changes) ...
 	ExecuteQuery(ctx context.Context, in *CommandQuery, opts ...grpc.CallOption) (*CommandQueryResponse, error)
 	// query related apis
+	CreateQuery(ctx context.Context, in *CreateQueryRequest, opts ...grpc.CallOption) (*Query, error)
 	ListQueries(ctx context.Context, in *ListQueriesRequest, opts ...grpc.CallOption) (*ListQueriesResponse, error)
 	GetQuery(ctx context.Context, in *GetQueryRequest, opts ...grpc.CallOption) (*Query, error)
 	TerminateQueries(ctx context.Context, in *TerminateQueriesRequest, opts ...grpc.CallOption) (*TerminateQueriesResponse, error)
@@ -115,9 +122,27 @@ func (c *hStreamApiClient) DeleteStream(ctx context.Context, in *DeleteStreamReq
 	return out, nil
 }
 
+func (c *hStreamApiClient) GetStream(ctx context.Context, in *GetStreamRequest, opts ...grpc.CallOption) (*GetStreamResponse, error) {
+	out := new(GetStreamResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/GetStream", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hStreamApiClient) ListStreams(ctx context.Context, in *ListStreamsRequest, opts ...grpc.CallOption) (*ListStreamsResponse, error) {
 	out := new(ListStreamsResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ListStreams", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) ListStreamsWithPrefix(ctx context.Context, in *ListStreamsWithPrefixRequest, opts ...grpc.CallOption) (*ListStreamsResponse, error) {
+	out := new(ListStreamsResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ListStreamsWithPrefix", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -196,9 +221,36 @@ func (c *hStreamApiClient) CreateSubscription(ctx context.Context, in *Subscript
 	return out, nil
 }
 
+func (c *hStreamApiClient) GetSubscription(ctx context.Context, in *GetSubscriptionRequest, opts ...grpc.CallOption) (*GetSubscriptionResponse, error) {
+	out := new(GetSubscriptionResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/GetSubscription", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hStreamApiClient) ListSubscriptions(ctx context.Context, in *ListSubscriptionsRequest, opts ...grpc.CallOption) (*ListSubscriptionsResponse, error) {
 	out := new(ListSubscriptionsResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ListSubscriptions", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) ListSubscriptionsWithPrefix(ctx context.Context, in *ListSubscriptionsWithPrefixRequest, opts ...grpc.CallOption) (*ListSubscriptionsResponse, error) {
+	out := new(ListSubscriptionsResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ListSubscriptionsWithPrefix", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) ListConsumers(ctx context.Context, in *ListConsumersRequest, opts ...grpc.CallOption) (*ListConsumersResponse, error) {
+	out := new(ListConsumersResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ListConsumers", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -272,6 +324,15 @@ func (c *hStreamApiClient) DescribeCluster(ctx context.Context, in *emptypb.Empt
 	return out, nil
 }
 
+func (c *hStreamApiClient) LookupResource(ctx context.Context, in *LookupResourceRequest, opts ...grpc.CallOption) (*ServerNode, error) {
+	out := new(ServerNode)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/LookupResource", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hStreamApiClient) SendAdminCommand(ctx context.Context, in *AdminCommandRequest, opts ...grpc.CallOption) (*AdminCommandResponse, error) {
 	out := new(AdminCommandResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/SendAdminCommand", in, out, opts...)
@@ -334,6 +395,15 @@ func (x *hStreamApiExecutePushQueryClient) Recv() (*structpb.Struct, error) {
 func (c *hStreamApiClient) ExecuteQuery(ctx context.Context, in *CommandQuery, opts ...grpc.CallOption) (*CommandQueryResponse, error) {
 	out := new(CommandQueryResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ExecuteQuery", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) CreateQuery(ctx context.Context, in *CreateQueryRequest, opts ...grpc.CallOption) (*Query, error) {
+	out := new(Query)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/CreateQuery", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +571,9 @@ type HStreamApiServer interface {
 	// Stream APIs
 	CreateStream(context.Context, *Stream) (*Stream, error)
 	DeleteStream(context.Context, *DeleteStreamRequest) (*emptypb.Empty, error)
+	GetStream(context.Context, *GetStreamRequest) (*GetStreamResponse, error)
 	ListStreams(context.Context, *ListStreamsRequest) (*ListStreamsResponse, error)
+	ListStreamsWithPrefix(context.Context, *ListStreamsWithPrefixRequest) (*ListStreamsResponse, error)
 	LookupShard(context.Context, *LookupShardRequest) (*LookupShardResponse, error)
 	Append(context.Context, *AppendRequest) (*AppendResponse, error)
 	// Shard APIs
@@ -512,13 +584,17 @@ type HStreamApiServer interface {
 	DeleteShardReader(context.Context, *DeleteShardReaderRequest) (*emptypb.Empty, error)
 	// Subscribe APIs
 	CreateSubscription(context.Context, *Subscription) (*Subscription, error)
+	GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error)
 	ListSubscriptions(context.Context, *ListSubscriptionsRequest) (*ListSubscriptionsResponse, error)
+	ListSubscriptionsWithPrefix(context.Context, *ListSubscriptionsWithPrefixRequest) (*ListSubscriptionsResponse, error)
+	ListConsumers(context.Context, *ListConsumersRequest) (*ListConsumersResponse, error)
 	CheckSubscriptionExist(context.Context, *CheckSubscriptionExistRequest) (*CheckSubscriptionExistResponse, error)
 	DeleteSubscription(context.Context, *DeleteSubscriptionRequest) (*emptypb.Empty, error)
 	LookupSubscription(context.Context, *LookupSubscriptionRequest) (*LookupSubscriptionResponse, error)
 	StreamingFetch(HStreamApi_StreamingFetchServer) error
 	// Cluster APIs
 	DescribeCluster(context.Context, *emptypb.Empty) (*DescribeClusterResponse, error)
+	LookupResource(context.Context, *LookupResourceRequest) (*ServerNode, error)
 	// Admin Command
 	SendAdminCommand(context.Context, *AdminCommandRequest) (*AdminCommandResponse, error)
 	// Stats
@@ -531,6 +607,7 @@ type HStreamApiServer interface {
 	// e.g., insert, create, show/list, select(without emit changes) ...
 	ExecuteQuery(context.Context, *CommandQuery) (*CommandQueryResponse, error)
 	// query related apis
+	CreateQuery(context.Context, *CreateQueryRequest) (*Query, error)
 	ListQueries(context.Context, *ListQueriesRequest) (*ListQueriesResponse, error)
 	GetQuery(context.Context, *GetQueryRequest) (*Query, error)
 	TerminateQueries(context.Context, *TerminateQueriesRequest) (*TerminateQueriesResponse, error)
@@ -567,8 +644,14 @@ func (UnimplementedHStreamApiServer) CreateStream(context.Context, *Stream) (*St
 func (UnimplementedHStreamApiServer) DeleteStream(context.Context, *DeleteStreamRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteStream not implemented")
 }
+func (UnimplementedHStreamApiServer) GetStream(context.Context, *GetStreamRequest) (*GetStreamResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStream not implemented")
+}
 func (UnimplementedHStreamApiServer) ListStreams(context.Context, *ListStreamsRequest) (*ListStreamsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListStreams not implemented")
+}
+func (UnimplementedHStreamApiServer) ListStreamsWithPrefix(context.Context, *ListStreamsWithPrefixRequest) (*ListStreamsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListStreamsWithPrefix not implemented")
 }
 func (UnimplementedHStreamApiServer) LookupShard(context.Context, *LookupShardRequest) (*LookupShardResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method LookupShard not implemented")
@@ -594,8 +677,17 @@ func (UnimplementedHStreamApiServer) DeleteShardReader(context.Context, *DeleteS
 func (UnimplementedHStreamApiServer) CreateSubscription(context.Context, *Subscription) (*Subscription, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSubscription not implemented")
 }
+func (UnimplementedHStreamApiServer) GetSubscription(context.Context, *GetSubscriptionRequest) (*GetSubscriptionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubscription not implemented")
+}
 func (UnimplementedHStreamApiServer) ListSubscriptions(context.Context, *ListSubscriptionsRequest) (*ListSubscriptionsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListSubscriptions not implemented")
+}
+func (UnimplementedHStreamApiServer) ListSubscriptionsWithPrefix(context.Context, *ListSubscriptionsWithPrefixRequest) (*ListSubscriptionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListSubscriptionsWithPrefix not implemented")
+}
+func (UnimplementedHStreamApiServer) ListConsumers(context.Context, *ListConsumersRequest) (*ListConsumersResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListConsumers not implemented")
 }
 func (UnimplementedHStreamApiServer) CheckSubscriptionExist(context.Context, *CheckSubscriptionExistRequest) (*CheckSubscriptionExistResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CheckSubscriptionExist not implemented")
@@ -612,6 +704,9 @@ func (UnimplementedHStreamApiServer) StreamingFetch(HStreamApi_StreamingFetchSer
 func (UnimplementedHStreamApiServer) DescribeCluster(context.Context, *emptypb.Empty) (*DescribeClusterResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DescribeCluster not implemented")
 }
+func (UnimplementedHStreamApiServer) LookupResource(context.Context, *LookupResourceRequest) (*ServerNode, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LookupResource not implemented")
+}
 func (UnimplementedHStreamApiServer) SendAdminCommand(context.Context, *AdminCommandRequest) (*AdminCommandResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SendAdminCommand not implemented")
 }
@@ -626,6 +721,9 @@ func (UnimplementedHStreamApiServer) ExecutePushQuery(*CommandPushQuery, HStream
 }
 func (UnimplementedHStreamApiServer) ExecuteQuery(context.Context, *CommandQuery) (*CommandQueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteQuery not implemented")
+}
+func (UnimplementedHStreamApiServer) CreateQuery(context.Context, *CreateQueryRequest) (*Query, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateQuery not implemented")
 }
 func (UnimplementedHStreamApiServer) ListQueries(context.Context, *ListQueriesRequest) (*ListQueriesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListQueries not implemented")
@@ -745,6 +843,24 @@ func _HStreamApi_DeleteStream_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HStreamApi_GetStream_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStreamRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).GetStream(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/GetStream",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).GetStream(ctx, req.(*GetStreamRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HStreamApi_ListStreams_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListStreamsRequest)
 	if err := dec(in); err != nil {
@@ -759,6 +875,24 @@ func _HStreamApi_ListStreams_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HStreamApiServer).ListStreams(ctx, req.(*ListStreamsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_ListStreamsWithPrefix_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListStreamsWithPrefixRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).ListStreamsWithPrefix(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/ListStreamsWithPrefix",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).ListStreamsWithPrefix(ctx, req.(*ListStreamsWithPrefixRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -907,6 +1041,24 @@ func _HStreamApi_CreateSubscription_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HStreamApi_GetSubscription_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSubscriptionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).GetSubscription(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/GetSubscription",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).GetSubscription(ctx, req.(*GetSubscriptionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HStreamApi_ListSubscriptions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListSubscriptionsRequest)
 	if err := dec(in); err != nil {
@@ -921,6 +1073,42 @@ func _HStreamApi_ListSubscriptions_Handler(srv interface{}, ctx context.Context,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HStreamApiServer).ListSubscriptions(ctx, req.(*ListSubscriptionsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_ListSubscriptionsWithPrefix_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListSubscriptionsWithPrefixRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).ListSubscriptionsWithPrefix(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/ListSubscriptionsWithPrefix",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).ListSubscriptionsWithPrefix(ctx, req.(*ListSubscriptionsWithPrefixRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_ListConsumers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListConsumersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).ListConsumers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/ListConsumers",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).ListConsumers(ctx, req.(*ListConsumersRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1023,6 +1211,24 @@ func _HStreamApi_DescribeCluster_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HStreamApi_LookupResource_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LookupResourceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).LookupResource(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/LookupResource",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).LookupResource(ctx, req.(*LookupResourceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HStreamApi_SendAdminCommand_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(AdminCommandRequest)
 	if err := dec(in); err != nil {
@@ -1112,6 +1318,24 @@ func _HStreamApi_ExecuteQuery_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HStreamApiServer).ExecuteQuery(ctx, req.(*CommandQuery))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_CreateQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).CreateQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/CreateQuery",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).CreateQuery(ctx, req.(*CreateQueryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1442,8 +1666,16 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_DeleteStream_Handler,
 		},
 		{
+			MethodName: "GetStream",
+			Handler:    _HStreamApi_GetStream_Handler,
+		},
+		{
 			MethodName: "ListStreams",
 			Handler:    _HStreamApi_ListStreams_Handler,
+		},
+		{
+			MethodName: "ListStreamsWithPrefix",
+			Handler:    _HStreamApi_ListStreamsWithPrefix_Handler,
 		},
 		{
 			MethodName: "LookupShard",
@@ -1478,8 +1710,20 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_CreateSubscription_Handler,
 		},
 		{
+			MethodName: "GetSubscription",
+			Handler:    _HStreamApi_GetSubscription_Handler,
+		},
+		{
 			MethodName: "ListSubscriptions",
 			Handler:    _HStreamApi_ListSubscriptions_Handler,
+		},
+		{
+			MethodName: "ListSubscriptionsWithPrefix",
+			Handler:    _HStreamApi_ListSubscriptionsWithPrefix_Handler,
+		},
+		{
+			MethodName: "ListConsumers",
+			Handler:    _HStreamApi_ListConsumers_Handler,
 		},
 		{
 			MethodName: "CheckSubscriptionExist",
@@ -1498,6 +1742,10 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_DescribeCluster_Handler,
 		},
 		{
+			MethodName: "LookupResource",
+			Handler:    _HStreamApi_LookupResource_Handler,
+		},
+		{
 			MethodName: "SendAdminCommand",
 			Handler:    _HStreamApi_SendAdminCommand_Handler,
 		},
@@ -1512,6 +1760,10 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ExecuteQuery",
 			Handler:    _HStreamApi_ExecuteQuery_Handler,
+		},
+		{
+			MethodName: "CreateQuery",
+			Handler:    _HStreamApi_CreateQuery_Handler,
 		},
 		{
 			MethodName: "ListQueries",
