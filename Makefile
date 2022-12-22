@@ -22,6 +22,6 @@ test:
 	go test $(shell go list ./... | grep -v "/integraion_test*" ) -gcflags=-l -race ${TEST_FLAGS}
 
 integration_test:
-	cd integraion_test/resource && ./integration_test.sh
+	cd integration_test/resource && ./integration_test.sh
 
 .PHONY: clean fmt all gen test integration_test

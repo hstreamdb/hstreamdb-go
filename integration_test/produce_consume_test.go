@@ -4,6 +4,7 @@ import (
 	"sort"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/hstreamdb/hstreamdb-go/hstream"
@@ -128,6 +129,7 @@ func verifyProducer(t *testing.T, producer *hstream.Producer, streamName string,
 	defer client.DeleteSubscription(subId, true)
 
 	rids := produce(t, producer, payloads)
+	t.Logf("produce done")
 	fetchRes := consumeRecords(t, subId, len(payloads))
 	require.Equal(t, rids, fetchRes)
 }
@@ -174,6 +176,7 @@ func verifyBatchProducer(t *testing.T, producer *hstream.BatchProducer, streamNa
 	}
 
 	wg.Wait()
+	t.Logf("produce done")
 
 	rids := []string{}
 	ridMp.Range(func(key, value interface{}) bool {
@@ -185,6 +188,8 @@ func verifyBatchProducer(t *testing.T, producer *hstream.BatchProducer, streamNa
 		}
 		return true
 	})
+	t.Logf("check done")
+	t.Logf("length of rids %d", len(rids))
 
 	fetchRes := consumeRecords(t, subId, len(rids))
 	sort.Strings(rids)
@@ -199,18 +204,29 @@ func consumeRecords(t *testing.T, subId string, recordSize int) []string {
 
 	dataCh := consumer.StartFetch()
 	fetchRes := make([]string, 0, recordSize)
-	for res := range dataCh {
-		require.NoError(t, res.Err)
-		for _, record := range res.Result {
-			rid := record.GetRecordId()
-			fetchRes = append(fetchRes, rid.String())
-			record.Ack()
-		}
-		if len(fetchRes) == recordSize {
-			break
+	timer := time.NewTimer(25 * time.Second)
+	defer timer.Stop()
+	for {
+		select {
+		case <-timer.C:
+			return fetchRes
+		case res, ok := <-dataCh:
+			if !ok {
+				t.Logf("dataCh closed")
+				return fetchRes
+			}
+			require.NoError(t, res.Err)
+			for _, record := range res.Result {
+				rid := record.GetRecordId()
+				fetchRes = append(fetchRes, rid.String())
+				record.Ack()
+			}
+			//t.Logf("total fetched: %d", len(fetchRes))
+			if len(fetchRes) == recordSize {
+				return fetchRes
+			}
 		}
 	}
-	return fetchRes
 }
 
 func generateHRecord(recordSize int) []Record.HStreamRecord {
