@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
+	"github.com/hstreamdb/hstreamdb-go/util"
+	"go.uber.org/zap"
 )
 
 var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"
@@ -50,11 +52,14 @@ func RecordIdComparatorCompare(a, b RecordIdComparator) bool {
 
 func GenerateBatchHRecord(keySize, recordSize int) map[string][]Record.HStreamRecord {
 	res := make(map[string][]Record.HStreamRecord, keySize)
+	total := 0
 	for i := 0; i < keySize; i++ {
 		key := fmt.Sprintf("key-%d", i)
 		hRecords := GenerateHRecordWithKey(key, recordSize)
 		res[key] = hRecords
+		total += len(hRecords)
 	}
+	util.Logger().Info("generate HRecord", zap.Int("count", total))
 	return res
 }
 

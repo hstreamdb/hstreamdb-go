@@ -27,7 +27,7 @@ jobs:
         uses: golangci/golangci-lint-action@v3.3.0
         with:
           version: v1.49.0
-          args: --verbose
+          args: --verbose --color always --out-format colored-line-number
 
   build:
     runs-on: ubuntu-latest

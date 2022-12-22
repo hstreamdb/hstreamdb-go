@@ -26,16 +26,17 @@ services:
         set -e
         /usr/local/script/wait-for-storage.sh hstore-admin-server 6440 zookeeper 2181 600 \
         /usr/local/bin/hstream-server-sid \
-        --host 0.0.0.0 --port 6580 \
+        --bind-address 0.0.0.0 --port 6580 \
         --internal-port 6581 \
         --server-id 100 \
         --seed-nodes "hserver1:6581,hserver2:6581,hserver3:6581" \
-        --address $$(hostname -I | awk '{print $$1}') \
+        --advertised-address $$(hostname -I | awk '{print $$1}') \
         --metastore-uri zk://zookeeper:2181 \
         --store-config /etc/logdevice/logdevice.json \
         --store-admin-host hstore-admin-server --store-admin-port 6440 \
         --io-tasks-path /tmp/io/tasks \
-        --io-tasks-network hstream-local-cluster
+        --io-tasks-network hstream-local-cluster \
+        --store-log-level warning
 
   hserver2:
     image: hstreamdb/hstream
@@ -58,16 +59,17 @@ services:
         set -e
         /usr/local/script/wait-for-storage.sh hstore-admin-server 6440 zookeeper 2181 600 \
         /usr/local/bin/hstream-server-sid \
-        --host 0.0.0.0 --port 6580 \
+        --bind-address 0.0.0.0 --port 6580 \
         --internal-port 6581 \
         --server-id 101 \
         --seed-nodes "hserver1:6581,hserver2:6581,hserver3:6581" \
-        --address $$(hostname -I | awk '{print $$1}') \
+        --advertised-address $$(hostname -I | awk '{print $$1}') \
         --metastore-uri zk://zookeeper:2181 \
         --store-config /etc/logdevice/logdevice.json \
         --store-admin-host hstore-admin-server --store-admin-port 6440 \
         --io-tasks-path /tmp/io/tasks \
-        --io-tasks-network hstream-local-cluster
+        --io-tasks-network hstream-local-cluster \
+        --store-log-level warning
 
   hserver3:
     image: hstreamdb/hstream
@@ -90,16 +92,17 @@ services:
         set -e
         /usr/local/script/wait-for-storage.sh hstore-admin-server 6440 zookeeper 2181 600 \
         /usr/local/bin/hstream-server-sid \
-        --host 0.0.0.0 --port 6580 \
+        --bind-address 0.0.0.0 --port 6580 \
         --internal-port 6581 \
         --server-id 102 \
         --seed-nodes "hserver1:6581,hserver2:6581,hserver3:6581" \
-        --address $$(hostname -I | awk '{print $$1}') \
+        --advertised-address $$(hostname -I | awk '{print $$1}') \
         --metastore-uri zk://zookeeper:2181 \
         --store-config /etc/logdevice/logdevice.json \
         --store-admin-host hstore-admin-server --store-admin-port 6440 \
         --io-tasks-path /tmp/io/tasks \
-        --io-tasks-network hstream-local-cluster
+        --io-tasks-network hstream-local-cluster \
+        --store-log-level warning
 
   hserver-init:
     image: hstreamdb/hstream
