@@ -57,6 +57,8 @@ type HStreamApiClient interface {
 	// Stats
 	PerStreamTimeSeriesStats(ctx context.Context, in *PerStreamTimeSeriesStatsRequest, opts ...grpc.CallOption) (*PerStreamTimeSeriesStatsResponse, error)
 	PerStreamTimeSeriesStatsAll(ctx context.Context, in *PerStreamTimeSeriesStatsAllRequest, opts ...grpc.CallOption) (*PerStreamTimeSeriesStatsAllResponse, error)
+	GetStreamStats(ctx context.Context, in *GetStreamStatsRequest, opts ...grpc.CallOption) (*GetStreamStatsResponse, error)
+	GetSubscriptionStats(ctx context.Context, in *GetSubscriptionStatsRequest, opts ...grpc.CallOption) (*GetSubscriptionStatsResponse, error)
 	// only for push query
 	// e.g., select (with emit changes)
 	ExecutePushQuery(ctx context.Context, in *CommandPushQuery, opts ...grpc.CallOption) (HStreamApi_ExecutePushQueryClient, error)
@@ -360,6 +362,24 @@ func (c *hStreamApiClient) PerStreamTimeSeriesStatsAll(ctx context.Context, in *
 	return out, nil
 }
 
+func (c *hStreamApiClient) GetStreamStats(ctx context.Context, in *GetStreamStatsRequest, opts ...grpc.CallOption) (*GetStreamStatsResponse, error) {
+	out := new(GetStreamStatsResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/GetStreamStats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) GetSubscriptionStats(ctx context.Context, in *GetSubscriptionStatsRequest, opts ...grpc.CallOption) (*GetSubscriptionStatsResponse, error) {
+	out := new(GetSubscriptionStatsResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/GetSubscriptionStats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hStreamApiClient) ExecutePushQuery(ctx context.Context, in *CommandPushQuery, opts ...grpc.CallOption) (HStreamApi_ExecutePushQueryClient, error) {
 	stream, err := c.cc.NewStream(ctx, &HStreamApi_ServiceDesc.Streams[1], "/hstream.server.HStreamApi/ExecutePushQuery", opts...)
 	if err != nil {
@@ -600,6 +620,8 @@ type HStreamApiServer interface {
 	// Stats
 	PerStreamTimeSeriesStats(context.Context, *PerStreamTimeSeriesStatsRequest) (*PerStreamTimeSeriesStatsResponse, error)
 	PerStreamTimeSeriesStatsAll(context.Context, *PerStreamTimeSeriesStatsAllRequest) (*PerStreamTimeSeriesStatsAllResponse, error)
+	GetStreamStats(context.Context, *GetStreamStatsRequest) (*GetStreamStatsResponse, error)
+	GetSubscriptionStats(context.Context, *GetSubscriptionStatsRequest) (*GetSubscriptionStatsResponse, error)
 	// only for push query
 	// e.g., select (with emit changes)
 	ExecutePushQuery(*CommandPushQuery, HStreamApi_ExecutePushQueryServer) error
@@ -715,6 +737,12 @@ func (UnimplementedHStreamApiServer) PerStreamTimeSeriesStats(context.Context, *
 }
 func (UnimplementedHStreamApiServer) PerStreamTimeSeriesStatsAll(context.Context, *PerStreamTimeSeriesStatsAllRequest) (*PerStreamTimeSeriesStatsAllResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PerStreamTimeSeriesStatsAll not implemented")
+}
+func (UnimplementedHStreamApiServer) GetStreamStats(context.Context, *GetStreamStatsRequest) (*GetStreamStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetStreamStats not implemented")
+}
+func (UnimplementedHStreamApiServer) GetSubscriptionStats(context.Context, *GetSubscriptionStatsRequest) (*GetSubscriptionStatsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSubscriptionStats not implemented")
 }
 func (UnimplementedHStreamApiServer) ExecutePushQuery(*CommandPushQuery, HStreamApi_ExecutePushQueryServer) error {
 	return status.Errorf(codes.Unimplemented, "method ExecutePushQuery not implemented")
@@ -1283,6 +1311,42 @@ func _HStreamApi_PerStreamTimeSeriesStatsAll_Handler(srv interface{}, ctx contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HStreamApi_GetStreamStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetStreamStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).GetStreamStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/GetStreamStats",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).GetStreamStats(ctx, req.(*GetStreamStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_GetSubscriptionStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetSubscriptionStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).GetSubscriptionStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/GetSubscriptionStats",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).GetSubscriptionStats(ctx, req.(*GetSubscriptionStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HStreamApi_ExecutePushQuery_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(CommandPushQuery)
 	if err := stream.RecvMsg(m); err != nil {
@@ -1756,6 +1820,14 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PerStreamTimeSeriesStatsAll",
 			Handler:    _HStreamApi_PerStreamTimeSeriesStatsAll_Handler,
+		},
+		{
+			MethodName: "GetStreamStats",
+			Handler:    _HStreamApi_GetStreamStats_Handler,
+		},
+		{
+			MethodName: "GetSubscriptionStats",
+			Handler:    _HStreamApi_GetSubscriptionStats_Handler,
 		},
 		{
 			MethodName: "ExecuteQuery",
