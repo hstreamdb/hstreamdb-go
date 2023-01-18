@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -27,7 +28,6 @@ import (
 const (
 	DialTimeout    = 5 * time.Second
 	RequestTimeout = 5 * time.Second
-	addressPrefix  = "hstream://"
 )
 
 // Client is a client that sends RPC to HStreamDB server.
@@ -104,11 +104,28 @@ func (c *RPCClient) isClosed() bool {
 // NewRPCClient TODO：use connection pool for each address
 func NewRPCClient(address string, tlsCfg security.TLSAuth) (*RPCClient, error) {
 	address = strings.TrimSpace(address)
-	address = strings.TrimPrefix(address, addressPrefix)
+	schema := strings.Split(address, "://")
+	if len(schema) != 2 {
+		return nil, errors.New(fmt.Sprintf("unexpected address %s, correct example: hstream://127.0.0.1:6570", address))
+	}
+
+	if err := checkUrlSchema(schema[0], tlsCfg); err != nil {
+		return nil, err
+	}
+
+	hosts := strings.Split(schema[1], ",")
+	for i := 0; i < len(hosts); i++ {
+		host := hosts[i]
+		if strings.Contains(host, ":") {
+			continue
+		}
+		hosts[i] = hosts[i] + ":6570"
+	}
+
 	cli := &RPCClient{
 		connections: make(map[string]*grpc.ClientConn),
 		closed:      1,
-		serverInfo:  strings.Split(address, ","),
+		serverInfo:  hosts,
 	}
 
 	if len(tlsCfg.ClusterSSLCA) != 0 {
@@ -131,6 +148,19 @@ func NewRPCClient(address string, tlsCfg security.TLSAuth) (*RPCClient, error) {
 	}
 
 	return nil, errors.New("Failed to connect to hstreamdb server")
+}
+
+// checkUrlSchema check if the url is legal
+func checkUrlSchema(schema string, tlsCfg security.TLSAuth) error {
+	urlSchema := strings.ToUpper(schema)
+	if urlSchema != "HSTREAM" && urlSchema != "HSTREAMS" {
+		return errors.New(fmt.Sprintf("invalid url schema: %s", schema))
+	}
+
+	if urlSchema == "HSTREAMS" && !tlsCfg.CheckEnable() {
+		return errors.New("hstreams url schema should set ca")
+	}
+	return nil
 }
 
 // getConnection returns a connection to the server.

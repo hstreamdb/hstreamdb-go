@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-var serverUrl = "172.16.156.11:6580"
+var serverUrl = "hstream://172.16.156.11:6580"
 
 var client *hstream.HStreamClient
 

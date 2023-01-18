@@ -17,6 +17,10 @@ type TLSAuth struct {
 	ClusterSSLKey  string
 }
 
+func (t *TLSAuth) CheckEnable() bool {
+	return len(t.ClusterSSLKey) != 0
+}
+
 func (t *TLSAuth) ToTLSConfig() (*tls.Config, error) {
 	if len(t.ClusterSSLCA) == 0 {
 		return &tls.Config{

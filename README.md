@@ -34,7 +34,7 @@ import (
 )
 
 func main() {
-	serverUrl := "localhost:6580,localhost:6581,localhost:6582"
+	serverUrl := "hstream://localhost:6580,localhost:6581,localhost:6582"
 	client, err := hstream.NewHStreamClient(serverUrl)
 	if err != nil {
 		log.Fatalf("Creating client error: %s", err)
