@@ -2,6 +2,9 @@ package hstream
 
 import (
 	"fmt"
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
@@ -14,6 +17,7 @@ type Stream struct {
 	// backlog duration == 0 means forbidden backlog
 	BacklogDuration uint32
 	ShardCount      uint32
+	CreationTime    time.Time
 }
 
 func (s *Stream) StreamToPb() *hstreampb.Stream {
@@ -22,6 +26,7 @@ func (s *Stream) StreamToPb() *hstreampb.Stream {
 		ReplicationFactor: s.ReplicationFactor,
 		BacklogDuration:   s.BacklogDuration,
 		ShardCount:        s.ShardCount,
+		CreationTime:      timestamppb.New(s.CreationTime),
 	}
 }
 
@@ -31,6 +36,7 @@ func StreamFromPb(pb *hstreampb.Stream) Stream {
 		ReplicationFactor: pb.ReplicationFactor,
 		BacklogDuration:   pb.BacklogDuration,
 		ShardCount:        pb.ShardCount,
+		CreationTime:      pb.CreationTime.AsTime(),
 	}
 }
 
