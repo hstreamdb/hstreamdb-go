@@ -14,14 +14,14 @@ func TestParseUrl(t *testing.T) {
 		want     serverList
 	}{
 		{
-			testName: "parse without prefix",
-			input:    "127.0.0.1:9580,127.0.0.2:9581,127.0.0.3:9582",
-			want:     serverList{"127.0.0.1:9580", "127.0.0.2:9581", "127.0.0.3:9582"},
+			testName: "parse without port",
+			input:    "hstream://127.0.0.1,127.0.0.2,127.0.0.3",
+			want:     serverList{"127.0.0.1:6570", "127.0.0.2:6570", "127.0.0.3:6570"},
 		},
 		{
-			testName: "parse with prefix",
-			input:    "hstream://127.0.0.1:9580,127.0.0.2:9581,127.0.0.3:9582",
-			want:     serverList{"127.0.0.1:9580", "127.0.0.2:9581", "127.0.0.3:9582"},
+			testName: "parse with hstream prefix",
+			input:    "hstream://127.0.0.1:6570,127.0.0.2:6570,127.0.0.3:6570",
+			want:     serverList{"127.0.0.1:6570", "127.0.0.2:6570", "127.0.0.3:6570"},
 		},
 	}
 

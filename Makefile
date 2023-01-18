@@ -24,4 +24,7 @@ test:
 integration_test:
 	cd integration_test/resource && ./integration_test.sh
 
-.PHONY: clean fmt all gen test integration_test
+lint:
+	golangci-lint run --fix
+
+.PHONY: clean fmt all gen test integration_test lint

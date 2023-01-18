@@ -27,7 +27,7 @@ func (mw *mainWrapper) Run() int {
 	}
 	defer server.stop()
 
-	testClient, err = NewHStreamClient("127.0.0.1:7580")
+	testClient, err = NewHStreamClient("hstream://127.0.0.1:7580")
 	if err != nil {
 		util.Logger().Error("create test client err", zap.Error(err))
 		os.Exit(1)
