@@ -2,6 +2,9 @@ package hstream
 
 import (
 	"fmt"
+	"time"
+
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
@@ -23,6 +26,7 @@ type Subscription struct {
 	AckTimeoutSeconds int32
 	MaxUnackedRecords int32
 	Offset            SubscriptionOffset
+	CreationTime      time.Time
 }
 
 func (s *Subscription) SubscriptionToPb() *hstreampb.Subscription {
@@ -32,6 +36,7 @@ func (s *Subscription) SubscriptionToPb() *hstreampb.Subscription {
 		AckTimeoutSeconds: s.AckTimeoutSeconds,
 		MaxUnackedRecords: s.MaxUnackedRecords,
 		Offset:            SubscriptionOffsetToPb(s.Offset),
+		CreationTime:      timestamppb.New(s.CreationTime),
 	}
 }
 
@@ -42,6 +47,7 @@ func SubscriptionFromPb(pb *hstreampb.Subscription) Subscription {
 		AckTimeoutSeconds: pb.AckTimeoutSeconds,
 		MaxUnackedRecords: pb.MaxUnackedRecords,
 		Offset:            SubscriptionOffsetFromPb(pb.Offset),
+		CreationTime:      pb.CreationTime.AsTime(),
 	}
 }
 
