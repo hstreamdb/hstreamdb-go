@@ -220,34 +220,63 @@ func CompressionTypeFromPb(c hstreampb.CompressionType) (tp compression.Compress
 	return
 }
 
-func StreamStatsTypeToPb(t StreamStatsType) (tp hstreampb.StreamStats) {
-	switch t {
-	case StreamAppendInBytes:
-		tp = hstreampb.StreamStats_AppendInBytes
-	case StreamAppendInRecords:
-		tp = hstreampb.StreamStats_AppendInRecords
-	case TotalAppend:
-		tp = hstreampb.StreamStats_TotalAppend
-	case FailedAppend:
-		tp = hstreampb.StreamStats_FailedAppend
+func StatValueFromPb(pb *hstreampb.StatValue) StatValue {
+	return StatValue{
+		Type:  StatsTypeFromPb(pb.GetStatType()),
+		Value: pb.GetStatValues(),
 	}
-	return
 }
 
-func SubscriptionStatsTypeToPb(t SubscriptionStatsType) (tp hstreampb.SubscriptionStats) {
-	switch t {
-	case SubDeliveryInBytes:
-		tp = hstreampb.SubscriptionStats_DeliveryInBytes
-	case SubDeliveryInRecords:
-		tp = hstreampb.SubscriptionStats_DeliveryInRecords
-	case AckReceived:
-		tp = hstreampb.SubscriptionStats_AckReceived
-	case ResendRecords:
-		tp = hstreampb.SubscriptionStats_ResendRecords
-	case SubMessageRequestCnt:
-		tp = hstreampb.SubscriptionStats_MessageRequestCount
-	case SubMessageResponseCnt:
-		tp = hstreampb.SubscriptionStats_MessageResponseCount
+func StatErrorFromPb(pb *hstreampb.StatError) StatError {
+	return StatError{
+		Type:    StatsTypeFromPb(pb.GetStatType()),
+		Message: pb.GetMessage(),
 	}
-	return
+}
+
+func StatsTypeFromPb(tp *hstreampb.StatType) StatType {
+	statTp := tp.GetStat()
+	switch st := statTp.(type) {
+	case *hstreampb.StatType_StreamStat:
+		return StreamStatsTypeFromPb(st)
+	case *hstreampb.StatType_SubStat:
+		return SubStatsTypeFromPb(st)
+	}
+	return nil
+}
+
+func StreamStatsTypeFromPb(tp *hstreampb.StatType_StreamStat) (t StreamStatsType) {
+	switch tp.StreamStat {
+	case hstreampb.StreamStats_AppendInBytes:
+		t = StreamAppendInBytes
+	case hstreampb.StreamStats_AppendInRecords:
+		t = StreamAppendInRecords
+	case hstreampb.StreamStats_AppendTotal:
+		t = StreamAppendTotal
+	case hstreampb.StreamStats_AppendFailed:
+		t = StreamAppendFailed
+	}
+	return t
+}
+
+func SubStatsTypeFromPb(tp *hstreampb.StatType_SubStat) (t SubscriptionStatsType) {
+	switch tp.SubStat {
+	case hstreampb.SubscriptionStats_SendOutBytes:
+		t = SubSendOutBytes
+	case hstreampb.SubscriptionStats_SendOutRecords:
+		t = SubSendOutRecords
+	case hstreampb.SubscriptionStats_SendOutRecordsFailed:
+		t = SubSendOutRecordsFailed
+	case hstreampb.SubscriptionStats_ResendRecords:
+		t = SubResendRecords
+	case hstreampb.SubscriptionStats_ResendRecordsFailed:
+		t = SubResendRecordsFailed
+	case hstreampb.SubscriptionStats_ReceivedAcks:
+		t = ReceivedAcks
+	case hstreampb.SubscriptionStats_RequestMessages:
+		t = SubRequestMessages
+	case hstreampb.SubscriptionStats_ResponseMessages:
+		t = SubResponseMessages
+	}
+	return t
 }
