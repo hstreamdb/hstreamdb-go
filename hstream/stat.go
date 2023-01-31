@@ -5,8 +5,9 @@ import (
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 )
 
-type StatsType interface {
-	stats()
+type StatType interface {
+	toPbStat() (tp *hstreampb.StatType)
+	String() string
 }
 
 type StreamStatsType int
@@ -14,9 +15,8 @@ type StreamStatsType int
 const (
 	StreamAppendInBytes StreamStatsType = iota + 1
 	StreamAppendInRecords
-	TotalAppend
-	FailedAppend
-	StreamAppendRequestCnt
+	StreamAppendTotal
+	StreamAppendFailed
 )
 
 func (s StreamStatsType) String() string {
@@ -25,83 +25,134 @@ func (s StreamStatsType) String() string {
 		return "StreamAppendInBytes"
 	case StreamAppendInRecords:
 		return "StreamAppendInRecords"
-	case TotalAppend:
-		return "TotalAppend"
-	case FailedAppend:
-		return "FailedAppend"
+	case StreamAppendTotal:
+		return "StreamAppendTotal"
+	case StreamAppendFailed:
+		return "StreamAppendFailed"
 	}
 	return ""
 }
 
-func (s StreamStatsType) stats() {}
-
-func (c *HStreamClient) GetStreamStatsRequest(addr string, statsType StreamStatsType) (map[string]int64, error) {
-	var (
-		resp *hstreamrpc.Response
-		err  error
-	)
-
-	req := &hstreamrpc.Request{
-		Type: hstreamrpc.GetStreamStatsRequest,
-		Req: &hstreampb.GetStreamStatsRequest{
-			StatsType: StreamStatsTypeToPb(statsType),
-		},
+func (s StreamStatsType) toPbStat() *hstreampb.StatType {
+	var tp *hstreampb.StatType_StreamStat
+	switch s {
+	case StreamAppendInBytes:
+		tp = &hstreampb.StatType_StreamStat{StreamStat: hstreampb.StreamStats_AppendInBytes}
+	case StreamAppendInRecords:
+		tp = &hstreampb.StatType_StreamStat{StreamStat: hstreampb.StreamStats_AppendInRecords}
+	case StreamAppendTotal:
+		tp = &hstreampb.StatType_StreamStat{StreamStat: hstreampb.StreamStats_AppendTotal}
+	case StreamAppendFailed:
+		tp = &hstreampb.StatType_StreamStat{StreamStat: hstreampb.StreamStats_AppendFailed}
 	}
-
-	if resp, err = c.sendRequest(addr, req); err != nil {
-		return nil, err
-	}
-	response := resp.Resp.(*hstreampb.GetStreamStatsResponse).GetStatValues()
-	return response, nil
+	return &hstreampb.StatType{Stat: tp}
 }
 
 type SubscriptionStatsType int
 
 const (
-	SubDeliveryInBytes SubscriptionStatsType = iota + 1
-	SubDeliveryInRecords
-	AckReceived
-	ResendRecords
-	SubMessageRequestCnt
-	SubMessageResponseCnt
+	SubSendOutBytes SubscriptionStatsType = iota + 1
+	SubSendOutRecords
+	SubSendOutRecordsFailed
+	SubResendRecords
+	SubResendRecordsFailed
+	ReceivedAcks
+	SubRequestMessages
+	SubResponseMessages
 )
 
 func (s SubscriptionStatsType) String() string {
 	switch s {
-	case SubDeliveryInBytes:
-		return "SubDeliveryInBytes"
-	case SubDeliveryInRecords:
-		return "SubDeliveryInRecords"
-	case AckReceived:
-		return "AckReceived"
-	case ResendRecords:
-		return "ResendRecords"
-	case SubMessageRequestCnt:
-		return "SubMessageRequestCnt"
-	case SubMessageResponseCnt:
-		return "SubMessageResponseCnt"
+	case SubSendOutBytes:
+		return "SubSendOutBytes"
+	case SubSendOutRecords:
+		return "SubSendOutRecords"
+	case SubSendOutRecordsFailed:
+		return "SubSendOutRecordsFailed"
+	case SubResendRecords:
+		return "SubResendRecords"
+	case SubResendRecordsFailed:
+		return "SubResendRecordsFailed"
+	case ReceivedAcks:
+		return "ReceivedAcks"
+	case SubRequestMessages:
+		return "SubRequestMessages"
+	case SubResponseMessages:
+		return "SubResponseMessages"
 	}
 	return ""
 }
 
-func (s SubscriptionStatsType) stats() {}
+func (s SubscriptionStatsType) toPbStat() *hstreampb.StatType {
+	var tp *hstreampb.StatType_SubStat
+	switch s {
+	case SubSendOutBytes:
+		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_SendOutBytes}
+	case SubSendOutRecords:
+		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_SendOutRecords}
+	case SubSendOutRecordsFailed:
+		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_SendOutRecordsFailed}
+	case SubResendRecords:
+		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_ResendRecords}
+	case SubResendRecordsFailed:
+		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_ResendRecordsFailed}
+	case ReceivedAcks:
+		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_ReceivedAcks}
+	case SubRequestMessages:
+		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_RequestMessages}
+	case SubResponseMessages:
+		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_ResponseMessages}
+	}
+	return &hstreampb.StatType{Stat: tp}
+}
 
-func (c *HStreamClient) GetSubscriptionStatsRequest(addr string, statsType SubscriptionStatsType) (map[string]int64, error) {
+type StatResult interface {
+	statResult()
+}
+
+type StatValue struct {
+	Type  StatType
+	Value map[string]int64
+}
+
+func (s StatValue) statResult() {}
+
+type StatError struct {
+	Type    StatType
+	Message string
+}
+
+func (s StatError) statResult() {}
+
+func (c *HStreamClient) GetStatsRequest(addr string, statsTypes []StatType) ([]StatResult, error) {
 	var (
 		resp *hstreamrpc.Response
 		err  error
 	)
 
+	states := make([]*hstreampb.StatType, 0, len(statsTypes))
+	for _, st := range statsTypes {
+		states = append(states, st.toPbStat())
+	}
 	req := &hstreamrpc.Request{
-		Type: hstreamrpc.GetSubscriptionStatsRequest,
-		Req: &hstreampb.GetSubscriptionStatsRequest{
-			StatsType: SubscriptionStatsTypeToPb(statsType),
+		Type: hstreamrpc.GetStatsRequest,
+		Req: &hstreampb.GetStatsRequest{
+			Stats: states,
 		},
 	}
 
 	if resp, err = c.sendRequest(addr, req); err != nil {
 		return nil, err
 	}
-	response := resp.Resp.(*hstreampb.GetSubscriptionStatsResponse).GetStatValues()
-	return response, nil
+	response := resp.Resp.(*hstreampb.GetStatsResponse)
+	success := response.GetStatsValues()
+	failed := response.GetErrors()
+	res := make([]StatResult, 0, len(success)+len(failed))
+	for _, s := range success {
+		res = append(res, StatValueFromPb(s))
+	}
+	for _, e := range failed {
+		res = append(res, StatErrorFromPb(e))
+	}
+	return res, nil
 }
