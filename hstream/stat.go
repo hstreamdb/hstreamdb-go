@@ -106,6 +106,34 @@ func (s SubscriptionStatsType) toPbStat() *hstreampb.StatType {
 	return &hstreampb.StatType{Stat: tp}
 }
 
+type ConnectorStatsType int
+
+const (
+	ConnectorDeliveredInRecords ConnectorStatsType = iota + 1
+	ConnectorDeliveredInBytes
+)
+
+func (c ConnectorStatsType) String() string {
+	switch c {
+	case ConnectorDeliveredInRecords:
+		return "ConnectorDeliveredInRecords"
+	case ConnectorDeliveredInBytes:
+		return "ConnectorDeliveredInBytes"
+	}
+	return ""
+}
+
+func (c ConnectorStatsType) toPbStat() *hstreampb.StatType {
+	var tp *hstreampb.StatType_ConnStat
+	switch c {
+	case ConnectorDeliveredInRecords:
+		tp = &hstreampb.StatType_ConnStat{ConnStat: hstreampb.ConnectorStats_DeliveredInRecords}
+	case ConnectorDeliveredInBytes:
+		tp = &hstreampb.StatType_ConnStat{ConnStat: hstreampb.ConnectorStats_DeliveredInBytes}
+	}
+	return &hstreampb.StatType{Stat: tp}
+}
+
 type StatResult interface {
 	statResult()
 }
