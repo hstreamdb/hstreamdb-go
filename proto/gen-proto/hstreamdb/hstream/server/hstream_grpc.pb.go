@@ -9,7 +9,6 @@ package server
 import (
 	context "context"
 	empty "github.com/golang/protobuf/ptypes/empty"
-	_struct "github.com/golang/protobuf/ptypes/struct"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -59,31 +58,32 @@ type HStreamApiClient interface {
 	PerStreamTimeSeriesStats(ctx context.Context, in *PerStreamTimeSeriesStatsRequest, opts ...grpc.CallOption) (*PerStreamTimeSeriesStatsResponse, error)
 	PerStreamTimeSeriesStatsAll(ctx context.Context, in *PerStreamTimeSeriesStatsAllRequest, opts ...grpc.CallOption) (*PerStreamTimeSeriesStatsAllResponse, error)
 	GetStats(ctx context.Context, in *GetStatsRequest, opts ...grpc.CallOption) (*GetStatsResponse, error)
-	// only for push query
-	// e.g., select (with emit changes)
-	ExecutePushQuery(ctx context.Context, in *CommandPushQuery, opts ...grpc.CallOption) (HStreamApi_ExecutePushQueryClient, error)
 	// for execute any sql stmt except push query,
 	// e.g., insert, create, show/list, select(without emit changes) ...
 	ExecuteQuery(ctx context.Context, in *CommandQuery, opts ...grpc.CallOption) (*CommandQueryResponse, error)
 	// query related apis
 	CreateQuery(ctx context.Context, in *CreateQueryRequest, opts ...grpc.CallOption) (*Query, error)
+	CreateQueryWithNamespace(ctx context.Context, in *CreateQueryWithNamespaceRequest, opts ...grpc.CallOption) (*Query, error)
 	ListQueries(ctx context.Context, in *ListQueriesRequest, opts ...grpc.CallOption) (*ListQueriesResponse, error)
 	GetQuery(ctx context.Context, in *GetQueryRequest, opts ...grpc.CallOption) (*Query, error)
-	TerminateQueries(ctx context.Context, in *TerminateQueriesRequest, opts ...grpc.CallOption) (*TerminateQueriesResponse, error)
+	TerminateQuery(ctx context.Context, in *TerminateQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	DeleteQuery(ctx context.Context, in *DeleteQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	RestartQuery(ctx context.Context, in *RestartQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	ResumeQuery(ctx context.Context, in *ResumeQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	PauseQuery(ctx context.Context, in *PauseQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	// connector related apis
 	CreateConnector(ctx context.Context, in *CreateConnectorRequest, opts ...grpc.CallOption) (*Connector, error)
 	ListConnectors(ctx context.Context, in *ListConnectorsRequest, opts ...grpc.CallOption) (*ListConnectorsResponse, error)
 	GetConnector(ctx context.Context, in *GetConnectorRequest, opts ...grpc.CallOption) (*Connector, error)
+	GetConnectorSpec(ctx context.Context, in *GetConnectorSpecRequest, opts ...grpc.CallOption) (*GetConnectorSpecResponse, error)
 	DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	PauseConnector(ctx context.Context, in *PauseConnectorRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	ResumeConnector(ctx context.Context, in *ResumeConnectorRequest, opts ...grpc.CallOption) (*empty.Empty, error)
-	LookupConnector(ctx context.Context, in *LookupConnectorRequest, opts ...grpc.CallOption) (*LookupConnectorResponse, error)
 	// view related apis
 	ListViews(ctx context.Context, in *ListViewsRequest, opts ...grpc.CallOption) (*ListViewsResponse, error)
 	GetView(ctx context.Context, in *GetViewRequest, opts ...grpc.CallOption) (*View, error)
 	DeleteView(ctx context.Context, in *DeleteViewRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	ExecuteViewQuery(ctx context.Context, in *ExecuteViewQueryRequest, opts ...grpc.CallOption) (*ExecuteViewQueryResponse, error)
+	ExecuteViewQueryWithNamespace(ctx context.Context, in *ExecuteViewQueryWithNamespaceRequest, opts ...grpc.CallOption) (*ExecuteViewQueryResponse, error)
 }
 
 type hStreamApiClient struct {
@@ -377,38 +377,6 @@ func (c *hStreamApiClient) GetStats(ctx context.Context, in *GetStatsRequest, op
 	return out, nil
 }
 
-func (c *hStreamApiClient) ExecutePushQuery(ctx context.Context, in *CommandPushQuery, opts ...grpc.CallOption) (HStreamApi_ExecutePushQueryClient, error) {
-	stream, err := c.cc.NewStream(ctx, &HStreamApi_ServiceDesc.Streams[1], "/hstream.server.HStreamApi/ExecutePushQuery", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &hStreamApiExecutePushQueryClient{stream}
-	if err := x.ClientStream.SendMsg(in); err != nil {
-		return nil, err
-	}
-	if err := x.ClientStream.CloseSend(); err != nil {
-		return nil, err
-	}
-	return x, nil
-}
-
-type HStreamApi_ExecutePushQueryClient interface {
-	Recv() (*_struct.Struct, error)
-	grpc.ClientStream
-}
-
-type hStreamApiExecutePushQueryClient struct {
-	grpc.ClientStream
-}
-
-func (x *hStreamApiExecutePushQueryClient) Recv() (*_struct.Struct, error) {
-	m := new(_struct.Struct)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
 func (c *hStreamApiClient) ExecuteQuery(ctx context.Context, in *CommandQuery, opts ...grpc.CallOption) (*CommandQueryResponse, error) {
 	out := new(CommandQueryResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ExecuteQuery", in, out, opts...)
@@ -421,6 +389,15 @@ func (c *hStreamApiClient) ExecuteQuery(ctx context.Context, in *CommandQuery, o
 func (c *hStreamApiClient) CreateQuery(ctx context.Context, in *CreateQueryRequest, opts ...grpc.CallOption) (*Query, error) {
 	out := new(Query)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/CreateQuery", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) CreateQueryWithNamespace(ctx context.Context, in *CreateQueryWithNamespaceRequest, opts ...grpc.CallOption) (*Query, error) {
+	out := new(Query)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/CreateQueryWithNamespace", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -445,9 +422,9 @@ func (c *hStreamApiClient) GetQuery(ctx context.Context, in *GetQueryRequest, op
 	return out, nil
 }
 
-func (c *hStreamApiClient) TerminateQueries(ctx context.Context, in *TerminateQueriesRequest, opts ...grpc.CallOption) (*TerminateQueriesResponse, error) {
-	out := new(TerminateQueriesResponse)
-	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/TerminateQueries", in, out, opts...)
+func (c *hStreamApiClient) TerminateQuery(ctx context.Context, in *TerminateQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/TerminateQuery", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -463,9 +440,18 @@ func (c *hStreamApiClient) DeleteQuery(ctx context.Context, in *DeleteQueryReque
 	return out, nil
 }
 
-func (c *hStreamApiClient) RestartQuery(ctx context.Context, in *RestartQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+func (c *hStreamApiClient) ResumeQuery(ctx context.Context, in *ResumeQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
-	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/RestartQuery", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ResumeQuery", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) PauseQuery(ctx context.Context, in *PauseQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/PauseQuery", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -499,6 +485,15 @@ func (c *hStreamApiClient) GetConnector(ctx context.Context, in *GetConnectorReq
 	return out, nil
 }
 
+func (c *hStreamApiClient) GetConnectorSpec(ctx context.Context, in *GetConnectorSpecRequest, opts ...grpc.CallOption) (*GetConnectorSpecResponse, error) {
+	out := new(GetConnectorSpecResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/GetConnectorSpec", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hStreamApiClient) DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/DeleteConnector", in, out, opts...)
@@ -526,15 +521,6 @@ func (c *hStreamApiClient) ResumeConnector(ctx context.Context, in *ResumeConnec
 	return out, nil
 }
 
-func (c *hStreamApiClient) LookupConnector(ctx context.Context, in *LookupConnectorRequest, opts ...grpc.CallOption) (*LookupConnectorResponse, error) {
-	out := new(LookupConnectorResponse)
-	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/LookupConnector", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *hStreamApiClient) ListViews(ctx context.Context, in *ListViewsRequest, opts ...grpc.CallOption) (*ListViewsResponse, error) {
 	out := new(ListViewsResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ListViews", in, out, opts...)
@@ -556,6 +542,24 @@ func (c *hStreamApiClient) GetView(ctx context.Context, in *GetViewRequest, opts
 func (c *hStreamApiClient) DeleteView(ctx context.Context, in *DeleteViewRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
 	out := new(empty.Empty)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/DeleteView", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) ExecuteViewQuery(ctx context.Context, in *ExecuteViewQueryRequest, opts ...grpc.CallOption) (*ExecuteViewQueryResponse, error) {
+	out := new(ExecuteViewQueryResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ExecuteViewQuery", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) ExecuteViewQueryWithNamespace(ctx context.Context, in *ExecuteViewQueryWithNamespaceRequest, opts ...grpc.CallOption) (*ExecuteViewQueryResponse, error) {
+	out := new(ExecuteViewQueryResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ExecuteViewQueryWithNamespace", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -601,31 +605,32 @@ type HStreamApiServer interface {
 	PerStreamTimeSeriesStats(context.Context, *PerStreamTimeSeriesStatsRequest) (*PerStreamTimeSeriesStatsResponse, error)
 	PerStreamTimeSeriesStatsAll(context.Context, *PerStreamTimeSeriesStatsAllRequest) (*PerStreamTimeSeriesStatsAllResponse, error)
 	GetStats(context.Context, *GetStatsRequest) (*GetStatsResponse, error)
-	// only for push query
-	// e.g., select (with emit changes)
-	ExecutePushQuery(*CommandPushQuery, HStreamApi_ExecutePushQueryServer) error
 	// for execute any sql stmt except push query,
 	// e.g., insert, create, show/list, select(without emit changes) ...
 	ExecuteQuery(context.Context, *CommandQuery) (*CommandQueryResponse, error)
 	// query related apis
 	CreateQuery(context.Context, *CreateQueryRequest) (*Query, error)
+	CreateQueryWithNamespace(context.Context, *CreateQueryWithNamespaceRequest) (*Query, error)
 	ListQueries(context.Context, *ListQueriesRequest) (*ListQueriesResponse, error)
 	GetQuery(context.Context, *GetQueryRequest) (*Query, error)
-	TerminateQueries(context.Context, *TerminateQueriesRequest) (*TerminateQueriesResponse, error)
+	TerminateQuery(context.Context, *TerminateQueryRequest) (*empty.Empty, error)
 	DeleteQuery(context.Context, *DeleteQueryRequest) (*empty.Empty, error)
-	RestartQuery(context.Context, *RestartQueryRequest) (*empty.Empty, error)
+	ResumeQuery(context.Context, *ResumeQueryRequest) (*empty.Empty, error)
+	PauseQuery(context.Context, *PauseQueryRequest) (*empty.Empty, error)
 	// connector related apis
 	CreateConnector(context.Context, *CreateConnectorRequest) (*Connector, error)
 	ListConnectors(context.Context, *ListConnectorsRequest) (*ListConnectorsResponse, error)
 	GetConnector(context.Context, *GetConnectorRequest) (*Connector, error)
+	GetConnectorSpec(context.Context, *GetConnectorSpecRequest) (*GetConnectorSpecResponse, error)
 	DeleteConnector(context.Context, *DeleteConnectorRequest) (*empty.Empty, error)
 	PauseConnector(context.Context, *PauseConnectorRequest) (*empty.Empty, error)
 	ResumeConnector(context.Context, *ResumeConnectorRequest) (*empty.Empty, error)
-	LookupConnector(context.Context, *LookupConnectorRequest) (*LookupConnectorResponse, error)
 	// view related apis
 	ListViews(context.Context, *ListViewsRequest) (*ListViewsResponse, error)
 	GetView(context.Context, *GetViewRequest) (*View, error)
 	DeleteView(context.Context, *DeleteViewRequest) (*empty.Empty, error)
+	ExecuteViewQuery(context.Context, *ExecuteViewQueryRequest) (*ExecuteViewQueryResponse, error)
+	ExecuteViewQueryWithNamespace(context.Context, *ExecuteViewQueryWithNamespaceRequest) (*ExecuteViewQueryResponse, error)
 	mustEmbedUnimplementedHStreamApiServer()
 }
 
@@ -720,14 +725,14 @@ func (UnimplementedHStreamApiServer) PerStreamTimeSeriesStatsAll(context.Context
 func (UnimplementedHStreamApiServer) GetStats(context.Context, *GetStatsRequest) (*GetStatsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStats not implemented")
 }
-func (UnimplementedHStreamApiServer) ExecutePushQuery(*CommandPushQuery, HStreamApi_ExecutePushQueryServer) error {
-	return status.Errorf(codes.Unimplemented, "method ExecutePushQuery not implemented")
-}
 func (UnimplementedHStreamApiServer) ExecuteQuery(context.Context, *CommandQuery) (*CommandQueryResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ExecuteQuery not implemented")
 }
 func (UnimplementedHStreamApiServer) CreateQuery(context.Context, *CreateQueryRequest) (*Query, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateQuery not implemented")
+}
+func (UnimplementedHStreamApiServer) CreateQueryWithNamespace(context.Context, *CreateQueryWithNamespaceRequest) (*Query, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CreateQueryWithNamespace not implemented")
 }
 func (UnimplementedHStreamApiServer) ListQueries(context.Context, *ListQueriesRequest) (*ListQueriesResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListQueries not implemented")
@@ -735,14 +740,17 @@ func (UnimplementedHStreamApiServer) ListQueries(context.Context, *ListQueriesRe
 func (UnimplementedHStreamApiServer) GetQuery(context.Context, *GetQueryRequest) (*Query, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetQuery not implemented")
 }
-func (UnimplementedHStreamApiServer) TerminateQueries(context.Context, *TerminateQueriesRequest) (*TerminateQueriesResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method TerminateQueries not implemented")
+func (UnimplementedHStreamApiServer) TerminateQuery(context.Context, *TerminateQueryRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TerminateQuery not implemented")
 }
 func (UnimplementedHStreamApiServer) DeleteQuery(context.Context, *DeleteQueryRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteQuery not implemented")
 }
-func (UnimplementedHStreamApiServer) RestartQuery(context.Context, *RestartQueryRequest) (*empty.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method RestartQuery not implemented")
+func (UnimplementedHStreamApiServer) ResumeQuery(context.Context, *ResumeQueryRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResumeQuery not implemented")
+}
+func (UnimplementedHStreamApiServer) PauseQuery(context.Context, *PauseQueryRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PauseQuery not implemented")
 }
 func (UnimplementedHStreamApiServer) CreateConnector(context.Context, *CreateConnectorRequest) (*Connector, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateConnector not implemented")
@@ -753,6 +761,9 @@ func (UnimplementedHStreamApiServer) ListConnectors(context.Context, *ListConnec
 func (UnimplementedHStreamApiServer) GetConnector(context.Context, *GetConnectorRequest) (*Connector, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConnector not implemented")
 }
+func (UnimplementedHStreamApiServer) GetConnectorSpec(context.Context, *GetConnectorSpecRequest) (*GetConnectorSpecResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetConnectorSpec not implemented")
+}
 func (UnimplementedHStreamApiServer) DeleteConnector(context.Context, *DeleteConnectorRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteConnector not implemented")
 }
@@ -762,9 +773,6 @@ func (UnimplementedHStreamApiServer) PauseConnector(context.Context, *PauseConne
 func (UnimplementedHStreamApiServer) ResumeConnector(context.Context, *ResumeConnectorRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResumeConnector not implemented")
 }
-func (UnimplementedHStreamApiServer) LookupConnector(context.Context, *LookupConnectorRequest) (*LookupConnectorResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method LookupConnector not implemented")
-}
 func (UnimplementedHStreamApiServer) ListViews(context.Context, *ListViewsRequest) (*ListViewsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListViews not implemented")
 }
@@ -773,6 +781,12 @@ func (UnimplementedHStreamApiServer) GetView(context.Context, *GetViewRequest) (
 }
 func (UnimplementedHStreamApiServer) DeleteView(context.Context, *DeleteViewRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteView not implemented")
+}
+func (UnimplementedHStreamApiServer) ExecuteViewQuery(context.Context, *ExecuteViewQueryRequest) (*ExecuteViewQueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecuteViewQuery not implemented")
+}
+func (UnimplementedHStreamApiServer) ExecuteViewQueryWithNamespace(context.Context, *ExecuteViewQueryWithNamespaceRequest) (*ExecuteViewQueryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ExecuteViewQueryWithNamespace not implemented")
 }
 func (UnimplementedHStreamApiServer) mustEmbedUnimplementedHStreamApiServer() {}
 
@@ -1317,27 +1331,6 @@ func _HStreamApi_GetStats_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _HStreamApi_ExecutePushQuery_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(CommandPushQuery)
-	if err := stream.RecvMsg(m); err != nil {
-		return err
-	}
-	return srv.(HStreamApiServer).ExecutePushQuery(m, &hStreamApiExecutePushQueryServer{stream})
-}
-
-type HStreamApi_ExecutePushQueryServer interface {
-	Send(*_struct.Struct) error
-	grpc.ServerStream
-}
-
-type hStreamApiExecutePushQueryServer struct {
-	grpc.ServerStream
-}
-
-func (x *hStreamApiExecutePushQueryServer) Send(m *_struct.Struct) error {
-	return x.ServerStream.SendMsg(m)
-}
-
 func _HStreamApi_ExecuteQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CommandQuery)
 	if err := dec(in); err != nil {
@@ -1370,6 +1363,24 @@ func _HStreamApi_CreateQuery_Handler(srv interface{}, ctx context.Context, dec f
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HStreamApiServer).CreateQuery(ctx, req.(*CreateQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_CreateQueryWithNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CreateQueryWithNamespaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).CreateQueryWithNamespace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/CreateQueryWithNamespace",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).CreateQueryWithNamespace(ctx, req.(*CreateQueryWithNamespaceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1410,20 +1421,20 @@ func _HStreamApi_GetQuery_Handler(srv interface{}, ctx context.Context, dec func
 	return interceptor(ctx, in, info, handler)
 }
 
-func _HStreamApi_TerminateQueries_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(TerminateQueriesRequest)
+func _HStreamApi_TerminateQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TerminateQueryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(HStreamApiServer).TerminateQueries(ctx, in)
+		return srv.(HStreamApiServer).TerminateQuery(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/hstream.server.HStreamApi/TerminateQueries",
+		FullMethod: "/hstream.server.HStreamApi/TerminateQuery",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HStreamApiServer).TerminateQueries(ctx, req.(*TerminateQueriesRequest))
+		return srv.(HStreamApiServer).TerminateQuery(ctx, req.(*TerminateQueryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1446,20 +1457,38 @@ func _HStreamApi_DeleteQuery_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
-func _HStreamApi_RestartQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(RestartQueryRequest)
+func _HStreamApi_ResumeQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ResumeQueryRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(HStreamApiServer).RestartQuery(ctx, in)
+		return srv.(HStreamApiServer).ResumeQuery(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/hstream.server.HStreamApi/RestartQuery",
+		FullMethod: "/hstream.server.HStreamApi/ResumeQuery",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HStreamApiServer).RestartQuery(ctx, req.(*RestartQueryRequest))
+		return srv.(HStreamApiServer).ResumeQuery(ctx, req.(*ResumeQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_PauseQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PauseQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).PauseQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/PauseQuery",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).PauseQuery(ctx, req.(*PauseQueryRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1518,6 +1547,24 @@ func _HStreamApi_GetConnector_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HStreamApi_GetConnectorSpec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetConnectorSpecRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).GetConnectorSpec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/GetConnectorSpec",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).GetConnectorSpec(ctx, req.(*GetConnectorSpecRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HStreamApi_DeleteConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(DeleteConnectorRequest)
 	if err := dec(in); err != nil {
@@ -1572,24 +1619,6 @@ func _HStreamApi_ResumeConnector_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _HStreamApi_LookupConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(LookupConnectorRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(HStreamApiServer).LookupConnector(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/hstream.server.HStreamApi/LookupConnector",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(HStreamApiServer).LookupConnector(ctx, req.(*LookupConnectorRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _HStreamApi_ListViews_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListViewsRequest)
 	if err := dec(in); err != nil {
@@ -1640,6 +1669,42 @@ func _HStreamApi_DeleteView_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HStreamApiServer).DeleteView(ctx, req.(*DeleteViewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_ExecuteViewQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExecuteViewQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).ExecuteViewQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/ExecuteViewQuery",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).ExecuteViewQuery(ctx, req.(*ExecuteViewQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_ExecuteViewQueryWithNamespace_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ExecuteViewQueryWithNamespaceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).ExecuteViewQueryWithNamespace(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/ExecuteViewQueryWithNamespace",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).ExecuteViewQueryWithNamespace(ctx, req.(*ExecuteViewQueryWithNamespaceRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1772,6 +1837,10 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_CreateQuery_Handler,
 		},
 		{
+			MethodName: "CreateQueryWithNamespace",
+			Handler:    _HStreamApi_CreateQueryWithNamespace_Handler,
+		},
+		{
 			MethodName: "ListQueries",
 			Handler:    _HStreamApi_ListQueries_Handler,
 		},
@@ -1780,16 +1849,20 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_GetQuery_Handler,
 		},
 		{
-			MethodName: "TerminateQueries",
-			Handler:    _HStreamApi_TerminateQueries_Handler,
+			MethodName: "TerminateQuery",
+			Handler:    _HStreamApi_TerminateQuery_Handler,
 		},
 		{
 			MethodName: "DeleteQuery",
 			Handler:    _HStreamApi_DeleteQuery_Handler,
 		},
 		{
-			MethodName: "RestartQuery",
-			Handler:    _HStreamApi_RestartQuery_Handler,
+			MethodName: "ResumeQuery",
+			Handler:    _HStreamApi_ResumeQuery_Handler,
+		},
+		{
+			MethodName: "PauseQuery",
+			Handler:    _HStreamApi_PauseQuery_Handler,
 		},
 		{
 			MethodName: "CreateConnector",
@@ -1804,6 +1877,10 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_GetConnector_Handler,
 		},
 		{
+			MethodName: "GetConnectorSpec",
+			Handler:    _HStreamApi_GetConnectorSpec_Handler,
+		},
+		{
 			MethodName: "DeleteConnector",
 			Handler:    _HStreamApi_DeleteConnector_Handler,
 		},
@@ -1814,10 +1891,6 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResumeConnector",
 			Handler:    _HStreamApi_ResumeConnector_Handler,
-		},
-		{
-			MethodName: "LookupConnector",
-			Handler:    _HStreamApi_LookupConnector_Handler,
 		},
 		{
 			MethodName: "ListViews",
@@ -1831,6 +1904,14 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "DeleteView",
 			Handler:    _HStreamApi_DeleteView_Handler,
 		},
+		{
+			MethodName: "ExecuteViewQuery",
+			Handler:    _HStreamApi_ExecuteViewQuery_Handler,
+		},
+		{
+			MethodName: "ExecuteViewQueryWithNamespace",
+			Handler:    _HStreamApi_ExecuteViewQueryWithNamespace_Handler,
+		},
 	},
 	Streams: []grpc.StreamDesc{
 		{
@@ -1838,11 +1919,6 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:       _HStreamApi_StreamingFetch_Handler,
 			ServerStreams: true,
 			ClientStreams: true,
-		},
-		{
-			StreamName:    "ExecutePushQuery",
-			Handler:       _HStreamApi_ExecutePushQuery_Handler,
-			ServerStreams: true,
 		},
 	},
 	Metadata: "hstream.proto",

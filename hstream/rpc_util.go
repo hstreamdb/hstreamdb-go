@@ -241,8 +241,20 @@ func StatsTypeFromPb(tp *hstreampb.StatType) StatType {
 		return StreamStatsTypeFromPb(st)
 	case *hstreampb.StatType_SubStat:
 		return SubStatsTypeFromPb(st)
+	case *hstreampb.StatType_ConnStat:
+		return ConnStatsTypeFromPb(st)
 	}
 	return nil
+}
+
+func ConnStatsTypeFromPb(tp *hstreampb.StatType_ConnStat) (t ConnectorStatsType) {
+	switch tp.ConnStat {
+	case hstreampb.ConnectorStats_DeliveredInRecords:
+		t = ConnectorDeliveredInRecords
+	case hstreampb.ConnectorStats_DeliveredInBytes:
+		t = ConnectorDeliveredInBytes
+	}
+	return t
 }
 
 func StreamStatsTypeFromPb(tp *hstreampb.StatType_StreamStat) (t StreamStatsType) {
