@@ -243,6 +243,8 @@ func StatsTypeFromPb(tp *hstreampb.StatType) StatType {
 		return SubStatsTypeFromPb(st)
 	case *hstreampb.StatType_ConnStat:
 		return ConnStatsTypeFromPb(st)
+	case *hstreampb.StatType_QueryStat:
+		return QueryStatsTypeFromPb(st)
 	}
 	return nil
 }
@@ -289,6 +291,16 @@ func SubStatsTypeFromPb(tp *hstreampb.StatType_SubStat) (t SubscriptionStatsType
 		t = SubRequestMessages
 	case hstreampb.SubscriptionStats_ResponseMessages:
 		t = SubResponseMessages
+	}
+	return t
+}
+
+func QueryStatsTypeFromPb(tp *hstreampb.StatType_QueryStat) (t QueryStatsType) {
+	switch tp.QueryStat {
+	case hstreampb.QueryStats_TotalInputRecords:
+		t = QueryTotalInputRecords
+	case hstreampb.QueryStats_TotalOutputRecords:
+		t = QueryTotalOutputRecords
 	}
 	return t
 }
