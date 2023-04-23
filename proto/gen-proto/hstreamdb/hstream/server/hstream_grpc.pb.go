@@ -70,11 +70,14 @@ type HStreamApiClient interface {
 	DeleteQuery(ctx context.Context, in *DeleteQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	ResumeQuery(ctx context.Context, in *ResumeQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	PauseQuery(ctx context.Context, in *PauseQueryRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	// parse query sql, return structuralized information
+	ParseSql(ctx context.Context, in *ParseSqlRequest, opts ...grpc.CallOption) (*ParseSqlResponse, error)
 	// connector related apis
 	CreateConnector(ctx context.Context, in *CreateConnectorRequest, opts ...grpc.CallOption) (*Connector, error)
 	ListConnectors(ctx context.Context, in *ListConnectorsRequest, opts ...grpc.CallOption) (*ListConnectorsResponse, error)
 	GetConnector(ctx context.Context, in *GetConnectorRequest, opts ...grpc.CallOption) (*Connector, error)
 	GetConnectorSpec(ctx context.Context, in *GetConnectorSpecRequest, opts ...grpc.CallOption) (*GetConnectorSpecResponse, error)
+	GetConnectorLogs(ctx context.Context, in *GetConnectorLogsRequest, opts ...grpc.CallOption) (*GetConnectorLogsResponse, error)
 	DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	PauseConnector(ctx context.Context, in *PauseConnectorRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 	ResumeConnector(ctx context.Context, in *ResumeConnectorRequest, opts ...grpc.CallOption) (*empty.Empty, error)
@@ -458,6 +461,15 @@ func (c *hStreamApiClient) PauseQuery(ctx context.Context, in *PauseQueryRequest
 	return out, nil
 }
 
+func (c *hStreamApiClient) ParseSql(ctx context.Context, in *ParseSqlRequest, opts ...grpc.CallOption) (*ParseSqlResponse, error) {
+	out := new(ParseSqlResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ParseSql", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hStreamApiClient) CreateConnector(ctx context.Context, in *CreateConnectorRequest, opts ...grpc.CallOption) (*Connector, error) {
 	out := new(Connector)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/CreateConnector", in, out, opts...)
@@ -488,6 +500,15 @@ func (c *hStreamApiClient) GetConnector(ctx context.Context, in *GetConnectorReq
 func (c *hStreamApiClient) GetConnectorSpec(ctx context.Context, in *GetConnectorSpecRequest, opts ...grpc.CallOption) (*GetConnectorSpecResponse, error) {
 	out := new(GetConnectorSpecResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/GetConnectorSpec", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) GetConnectorLogs(ctx context.Context, in *GetConnectorLogsRequest, opts ...grpc.CallOption) (*GetConnectorLogsResponse, error) {
+	out := new(GetConnectorLogsResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/GetConnectorLogs", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -617,11 +638,14 @@ type HStreamApiServer interface {
 	DeleteQuery(context.Context, *DeleteQueryRequest) (*empty.Empty, error)
 	ResumeQuery(context.Context, *ResumeQueryRequest) (*empty.Empty, error)
 	PauseQuery(context.Context, *PauseQueryRequest) (*empty.Empty, error)
+	// parse query sql, return structuralized information
+	ParseSql(context.Context, *ParseSqlRequest) (*ParseSqlResponse, error)
 	// connector related apis
 	CreateConnector(context.Context, *CreateConnectorRequest) (*Connector, error)
 	ListConnectors(context.Context, *ListConnectorsRequest) (*ListConnectorsResponse, error)
 	GetConnector(context.Context, *GetConnectorRequest) (*Connector, error)
 	GetConnectorSpec(context.Context, *GetConnectorSpecRequest) (*GetConnectorSpecResponse, error)
+	GetConnectorLogs(context.Context, *GetConnectorLogsRequest) (*GetConnectorLogsResponse, error)
 	DeleteConnector(context.Context, *DeleteConnectorRequest) (*empty.Empty, error)
 	PauseConnector(context.Context, *PauseConnectorRequest) (*empty.Empty, error)
 	ResumeConnector(context.Context, *ResumeConnectorRequest) (*empty.Empty, error)
@@ -752,6 +776,9 @@ func (UnimplementedHStreamApiServer) ResumeQuery(context.Context, *ResumeQueryRe
 func (UnimplementedHStreamApiServer) PauseQuery(context.Context, *PauseQueryRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PauseQuery not implemented")
 }
+func (UnimplementedHStreamApiServer) ParseSql(context.Context, *ParseSqlRequest) (*ParseSqlResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ParseSql not implemented")
+}
 func (UnimplementedHStreamApiServer) CreateConnector(context.Context, *CreateConnectorRequest) (*Connector, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateConnector not implemented")
 }
@@ -763,6 +790,9 @@ func (UnimplementedHStreamApiServer) GetConnector(context.Context, *GetConnector
 }
 func (UnimplementedHStreamApiServer) GetConnectorSpec(context.Context, *GetConnectorSpecRequest) (*GetConnectorSpecResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetConnectorSpec not implemented")
+}
+func (UnimplementedHStreamApiServer) GetConnectorLogs(context.Context, *GetConnectorLogsRequest) (*GetConnectorLogsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetConnectorLogs not implemented")
 }
 func (UnimplementedHStreamApiServer) DeleteConnector(context.Context, *DeleteConnectorRequest) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteConnector not implemented")
@@ -1493,6 +1523,24 @@ func _HStreamApi_PauseQuery_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HStreamApi_ParseSql_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ParseSqlRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).ParseSql(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/ParseSql",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).ParseSql(ctx, req.(*ParseSqlRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HStreamApi_CreateConnector_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateConnectorRequest)
 	if err := dec(in); err != nil {
@@ -1561,6 +1609,24 @@ func _HStreamApi_GetConnectorSpec_Handler(srv interface{}, ctx context.Context, 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HStreamApiServer).GetConnectorSpec(ctx, req.(*GetConnectorSpecRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_GetConnectorLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetConnectorLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).GetConnectorLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/GetConnectorLogs",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).GetConnectorLogs(ctx, req.(*GetConnectorLogsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1865,6 +1931,10 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _HStreamApi_PauseQuery_Handler,
 		},
 		{
+			MethodName: "ParseSql",
+			Handler:    _HStreamApi_ParseSql_Handler,
+		},
+		{
 			MethodName: "CreateConnector",
 			Handler:    _HStreamApi_CreateConnector_Handler,
 		},
@@ -1879,6 +1949,10 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetConnectorSpec",
 			Handler:    _HStreamApi_GetConnectorSpec_Handler,
+		},
+		{
+			MethodName: "GetConnectorLogs",
+			Handler:    _HStreamApi_GetConnectorLogs_Handler,
 		},
 		{
 			MethodName: "DeleteConnector",

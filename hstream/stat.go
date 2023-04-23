@@ -106,6 +106,34 @@ func (s SubscriptionStatsType) toPbStat() *hstreampb.StatType {
 	return &hstreampb.StatType{Stat: tp}
 }
 
+type QueryStatsType int
+
+const (
+	QueryTotalInputRecords QueryStatsType = iota + 1
+	QueryTotalOutputRecords
+)
+
+func (q QueryStatsType) String() string {
+	switch q {
+	case QueryTotalInputRecords:
+		return "QueryTotalInputRecords"
+	case QueryTotalOutputRecords:
+		return "QueryTotalOutputRecords"
+	}
+	return ""
+}
+
+func (q QueryStatsType) toPbStat() *hstreampb.StatType {
+	var tp *hstreampb.StatType_QueryStat
+	switch q {
+	case QueryTotalInputRecords:
+		tp = &hstreampb.StatType_QueryStat{QueryStat: hstreampb.QueryStats_TotalInputRecords}
+	case QueryTotalOutputRecords:
+		tp = &hstreampb.StatType_QueryStat{QueryStat: hstreampb.QueryStats_TotalOutputRecords}
+	}
+	return &hstreampb.StatType{Stat: tp}
+}
+
 type ConnectorStatsType int
 
 const (
