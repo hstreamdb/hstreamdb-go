@@ -301,6 +301,8 @@ func QueryStatsTypeFromPb(tp *hstreampb.StatType_QueryStat) (t QueryStatsType) {
 		t = QueryTotalInputRecords
 	case hstreampb.QueryStats_TotalOutputRecords:
 		t = QueryTotalOutputRecords
+	case hstreampb.QueryStats_TotalExecuteErrors:
+		t = QueryTotalExcuteErrors
 	}
 	return t
 }
