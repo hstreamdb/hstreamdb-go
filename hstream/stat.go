@@ -111,6 +111,7 @@ type QueryStatsType int
 const (
 	QueryTotalInputRecords QueryStatsType = iota + 1
 	QueryTotalOutputRecords
+	QueryTotalExcuteErrors
 )
 
 func (q QueryStatsType) String() string {
@@ -119,6 +120,8 @@ func (q QueryStatsType) String() string {
 		return "QueryTotalInputRecords"
 	case QueryTotalOutputRecords:
 		return "QueryTotalOutputRecords"
+	case QueryTotalExcuteErrors:
+		return "QueryTotalExcuteErrors"
 	}
 	return ""
 }
@@ -130,6 +133,8 @@ func (q QueryStatsType) toPbStat() *hstreampb.StatType {
 		tp = &hstreampb.StatType_QueryStat{QueryStat: hstreampb.QueryStats_TotalInputRecords}
 	case QueryTotalOutputRecords:
 		tp = &hstreampb.StatType_QueryStat{QueryStat: hstreampb.QueryStats_TotalOutputRecords}
+	case QueryTotalExcuteErrors:
+		tp = &hstreampb.StatType_QueryStat{QueryStat: hstreampb.QueryStats_TotalExecuteErrors}
 	}
 	return &hstreampb.StatType{Stat: tp}
 }
