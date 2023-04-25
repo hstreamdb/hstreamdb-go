@@ -139,6 +139,29 @@ func (q QueryStatsType) toPbStat() *hstreampb.StatType {
 	return &hstreampb.StatType{Stat: tp}
 }
 
+type ViewStatsType int
+
+const (
+	ViewTotalExecuteQueries ViewStatsType = iota + 1
+)
+
+func (v ViewStatsType) String() string {
+	switch v {
+	case ViewTotalExecuteQueries:
+		return "ViewTotalExecuteQueries"
+	}
+	return ""
+}
+
+func (v ViewStatsType) toPbStat() *hstreampb.StatType {
+	var tp *hstreampb.StatType_ViewStat
+	switch v {
+	case ViewTotalExecuteQueries:
+		tp = &hstreampb.StatType_ViewStat{ViewStat: hstreampb.ViewStats_TotalExecuteQueries}
+	}
+	return &hstreampb.StatType{Stat: tp}
+}
+
 type ConnectorStatsType int
 
 const (

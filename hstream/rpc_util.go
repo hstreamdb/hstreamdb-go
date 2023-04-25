@@ -245,6 +245,8 @@ func StatsTypeFromPb(tp *hstreampb.StatType) StatType {
 		return ConnStatsTypeFromPb(st)
 	case *hstreampb.StatType_QueryStat:
 		return QueryStatsTypeFromPb(st)
+	case *hstreampb.StatType_ViewStat:
+		return ViewStatsTypeFromPb(st)
 	}
 	return nil
 }
@@ -303,6 +305,14 @@ func QueryStatsTypeFromPb(tp *hstreampb.StatType_QueryStat) (t QueryStatsType) {
 		t = QueryTotalOutputRecords
 	case hstreampb.QueryStats_TotalExecuteErrors:
 		t = QueryTotalExcuteErrors
+	}
+	return t
+}
+
+func ViewStatsTypeFromPb(tp *hstreampb.StatType_ViewStat) (t ViewStatsType) {
+	switch tp.ViewStat {
+	case hstreampb.ViewStats_TotalExecuteQueries:
+		t = ViewTotalExecuteQueries
 	}
 	return t
 }
