@@ -1,6 +1,7 @@
 package hstream
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
@@ -52,7 +53,7 @@ func FromPbRawRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*Rec
 func FromPbHRecord(rid *hstreampb.RecordId, pb *hstreampb.HStreamRecord) (*Record.ReceivedHRecord, error) {
 	hRecord := &Record.ReceivedHRecord{}
 	res := &structpb.Struct{}
-	if err := res.UnmarshalJSON(pb.GetPayload()); err != nil {
+	if err := proto.Unmarshal(pb.GetPayload(), res); err != nil {
 		return hRecord, errors.Wrap(err, "failed to unmarshal hrecord")
 	}
 	hRecord.RecordId = RecordIdFromPb(rid)
@@ -133,7 +134,7 @@ func HStreamRecordToPb(r Record.HStreamRecord) (*hstreampb.HStreamRecord, error)
 			Payload: record.Payload,
 		}, nil
 	case *Record.HRecord:
-		payload, err := record.Payload.MarshalJSON()
+		payload, err := proto.Marshal(record.Payload)
 		if err != nil {
 			return nil, err
 		}

@@ -6,7 +6,7 @@ version: "3.5"
 
 services:
   hserver1:
-    image: hstreamdb/hstream
+    image: hstreamdb/hstream:v0.15.0
     depends_on:
       - zookeeper
       - hstore1
@@ -36,10 +36,11 @@ services:
         --store-admin-host hstore-admin-server --store-admin-port 6440 \
         --io-tasks-path /tmp/io/tasks \
         --io-tasks-network hstream-local-cluster \
-        --store-log-level warning
+        --store-log-level warning \
+        --log-level debug
 
   hserver2:
-    image: hstreamdb/hstream
+    image: hstreamdb/hstream:v0.15.0
     depends_on:
       - zookeeper
       - hstore1
@@ -69,10 +70,11 @@ services:
         --store-admin-host hstore-admin-server --store-admin-port 6440 \
         --io-tasks-path /tmp/io/tasks \
         --io-tasks-network hstream-local-cluster \
-        --store-log-level warning
+        --store-log-level warning \
+        --log-level debug
 
   hserver3:
-    image: hstreamdb/hstream
+    image: hstreamdb/hstream:v0.15.0
     depends_on:
       - zookeeper
       - hstore1
@@ -102,10 +104,11 @@ services:
         --store-admin-host hstore-admin-server --store-admin-port 6440 \
         --io-tasks-path /tmp/io/tasks \
         --io-tasks-network hstream-local-cluster \
-        --store-log-level warning
+        --store-log-level warning \
+        --log-level debug
 
   hserver-init:
-    image: hstreamdb/hstream
+    image: hstreamdb/hstream:v0.15.0
     depends_on:
       - hserver1
       - hserver2
