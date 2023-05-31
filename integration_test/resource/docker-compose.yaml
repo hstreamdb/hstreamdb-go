@@ -6,7 +6,7 @@ version: "3.5"
 
 services:
   hserver1:
-    image: hstreamdb/hstream:v0.15.0
+    image: hstreamdb/hstream
     depends_on:
       - zookeeper
       - hstore1
@@ -40,7 +40,7 @@ services:
         --log-level debug
 
   hserver2:
-    image: hstreamdb/hstream:v0.15.0
+    image: hstreamdb/hstream
     depends_on:
       - zookeeper
       - hstore1
@@ -74,7 +74,7 @@ services:
         --log-level debug
 
   hserver3:
-    image: hstreamdb/hstream:v0.15.0
+    image: hstreamdb/hstream
     depends_on:
       - zookeeper
       - hstore1
@@ -108,7 +108,7 @@ services:
         --log-level debug
 
   hserver-init:
-    image: hstreamdb/hstream:v0.15.0
+    image: hstreamdb/hstream
     depends_on:
       - hserver1
       - hserver2
