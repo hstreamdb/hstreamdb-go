@@ -28,6 +28,9 @@ import (
 const (
 	DialTimeout    = 5 * time.Second
 	RequestTimeout = 5 * time.Second
+	// UpdateServerInfoDuration TODO: support config by user
+	// Period of updating server node information in milliseconds
+	UpdateServerInfoDuration = 60000 // 60s
 )
 
 // Client is a client that sends RPC to HStreamDB server.
@@ -56,10 +59,19 @@ type RPCClient struct {
 	tlsCfg      *tls.Config
 	// closed == 0 means client is closed
 	closed int32
+	// Millisecond timestamp of the last update of the server node information
+	lastServerInfoTs atomic.Int64
 }
 
-// GetServerInfo returns cached server info
+// GetServerInfo If the current time does not exceed the update period since the last update,
+// the cached server node information is returned, otherwise try to update the node information and return
 func (c *RPCClient) GetServerInfo() ([]string, error) {
+	if time.Now().UnixMilli()-c.lastServerInfoTs.Load() >= UpdateServerInfoDuration {
+		if err := c.updateServerInfo(); err != nil {
+			return nil, err
+		}
+	}
+
 	c.RLock()
 	defer c.RUnlock()
 	if len(c.serverInfo) == 0 {
@@ -136,18 +148,34 @@ func NewRPCClient(address string, tlsCfg security.TLSAuth) (*RPCClient, error) {
 		cli.tlsCfg = cfg
 	}
 
-	for _, addr := range cli.serverInfo {
-		info, err := cli.requestServerInfo(addr)
+	if err := cli.updateServerInfo(); err != nil {
+		return nil, err
+	}
+
+	return cli, nil
+}
+
+// updateServerInfo will update serverList with current cluster node infos
+func (c *RPCClient) updateServerInfo() error {
+	c.RLock()
+	addrs := c.serverInfo
+	c.RUnlock()
+
+	for _, addr := range addrs {
+		info, err := c.requestServerInfo(addr)
 		if err != nil {
 			util.Logger().Warn("Failed to request serverInfo", zap.String("address", addr), zap.Error(err))
 			continue
 		}
-		cli.serverInfo = info
-		util.Logger().Info("InitConnection success, connect to server", zap.String("address", addr))
-		return cli, nil
-	}
 
-	return nil, errors.New("Failed to connect to hstreamdb server")
+		c.Lock()
+		c.serverInfo = info
+		c.lastServerInfoTs.Store(time.Now().UnixMilli())
+		c.Unlock()
+		util.Logger().Info("Update server info success", zap.String("new server", c.serverInfo.String()))
+		return nil
+	}
+	return errors.New("Failed to update hstreamdb server info.")
 }
 
 // checkUrlSchema check if the url is legal
@@ -249,35 +277,4 @@ func (c *RPCClient) requestServerInfo(address string) (serverList, error) {
 		newInfo = append(newInfo, info)
 	}
 	return newInfo, nil
-}
-
-// FIXME: need to call this method periodically ???
-// serverDiscovery try to send a DescribeCluster RPC to each server address, update serverInfo
-// with the result.
-func (c *RPCClient) serverDiscovery() error {
-	if c.isClosed() {
-		util.Logger().Info("Client closed, stop serverDiscovery")
-		return nil
-	}
-	c.RLock()
-	if len(c.serverInfo) == 0 {
-		c.RUnlock()
-		return errors.New("No hstreamdb server address")
-	}
-	oldInfo := c.serverInfo
-	c.RUnlock()
-
-	for _, addr := range oldInfo {
-		newInfo, err := c.requestServerInfo(addr)
-		if err != nil {
-			continue
-		}
-
-		c.Lock()
-		c.serverInfo = newInfo
-		c.Unlock()
-		return nil
-	}
-
-	return errors.New("Failed to update server info")
 }
