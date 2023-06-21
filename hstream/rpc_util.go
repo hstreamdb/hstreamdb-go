@@ -294,6 +294,8 @@ func SubStatsTypeFromPb(tp *hstreampb.StatType_SubStat) (t SubscriptionStatsType
 		t = SubRequestMessages
 	case hstreampb.SubscriptionStats_ResponseMessages:
 		t = SubResponseMessages
+	case hstreampb.SubscriptionStats_ChecklistSize:
+		t = SubCheckListSize
 	}
 	return t
 }

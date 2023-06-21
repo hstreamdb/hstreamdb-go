@@ -59,6 +59,7 @@ const (
 	ReceivedAcks
 	SubRequestMessages
 	SubResponseMessages
+	SubCheckListSize
 )
 
 func (s SubscriptionStatsType) String() string {
@@ -79,6 +80,8 @@ func (s SubscriptionStatsType) String() string {
 		return "SubRequestMessages"
 	case SubResponseMessages:
 		return "SubResponseMessages"
+	case SubCheckListSize:
+		return "SubCheckListSize"
 	}
 	return ""
 }
@@ -102,6 +105,8 @@ func (s SubscriptionStatsType) toPbStat() *hstreampb.StatType {
 		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_RequestMessages}
 	case SubResponseMessages:
 		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_ResponseMessages}
+	case SubCheckListSize:
+		tp = &hstreampb.StatType_SubStat{SubStat: hstreampb.SubscriptionStats_ChecklistSize}
 	}
 	return &hstreampb.StatType{Stat: tp}
 }
