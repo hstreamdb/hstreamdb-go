@@ -5,7 +5,8 @@
     "use-nodes-configuration-manager-nodes-configuration": "true",
     "enable-node-self-registration": "true",
     "enable-cluster-maintenance-state-machine": "true",
-    "append-store-durability": "memory"
+    "append-store-durability": "memory",
+    "free-disk-space-threshold": "0.1"
   },
   "client_settings": {
     "enable-nodes-configuration-manager": "true",

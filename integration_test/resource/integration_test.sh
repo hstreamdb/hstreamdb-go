@@ -19,7 +19,7 @@ function cluster_up() {
 }
 
 function cluster_down() {
-  docker-compose down
+  docker-compose down --volumes
   echo "===> cluster down"
 }
 
