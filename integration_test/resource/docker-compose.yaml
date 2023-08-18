@@ -262,7 +262,7 @@ services:
           nodes-config bootstrap --metadata-replicate-across node:3
 
   zookeeper:
-    image: zookeeper
+    image: zookeeper:3.8
     expose:
       - 2181
     networks:
