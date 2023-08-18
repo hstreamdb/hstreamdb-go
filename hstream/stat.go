@@ -17,6 +17,8 @@ const (
 	StreamAppendInRecords
 	StreamAppendTotal
 	StreamAppendFailed
+	StreamReadInBytes
+	StreamReadInBatches
 )
 
 func (s StreamStatsType) String() string {
@@ -29,6 +31,10 @@ func (s StreamStatsType) String() string {
 		return "StreamAppendTotal"
 	case StreamAppendFailed:
 		return "StreamAppendFailed"
+	case StreamReadInBytes:
+		return "StreamReadInBytes"
+	case StreamReadInBatches:
+		return "StreamReadInBatches"
 	}
 	return ""
 }
@@ -44,6 +50,10 @@ func (s StreamStatsType) toPbStat() *hstreampb.StatType {
 		tp = &hstreampb.StatType_StreamStat{StreamStat: hstreampb.StreamStats_AppendTotal}
 	case StreamAppendFailed:
 		tp = &hstreampb.StatType_StreamStat{StreamStat: hstreampb.StreamStats_AppendFailed}
+	case StreamReadInBytes:
+		tp = &hstreampb.StatType_StreamStat{StreamStat: hstreampb.StreamStats_ReadInBytes}
+	case StreamReadInBatches:
+		tp = &hstreampb.StatType_StreamStat{StreamStat: hstreampb.StreamStats_ReadInBatches}
 	}
 	return &hstreampb.StatType{Stat: tp}
 }

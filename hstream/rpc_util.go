@@ -272,6 +272,10 @@ func StreamStatsTypeFromPb(tp *hstreampb.StatType_StreamStat) (t StreamStatsType
 		t = StreamAppendTotal
 	case hstreampb.StreamStats_AppendFailed:
 		t = StreamAppendFailed
+	case hstreampb.StreamStats_ReadInBytes:
+		t = StreamReadInBytes
+	case hstreampb.StreamStats_ReadInBatches:
+		t = StreamReadInBatches
 	}
 	return t
 }
