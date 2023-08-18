@@ -212,7 +212,7 @@ func TestCreateAndDeleteReader(t *testing.T) {
 		},
 		"reader from Latest": {
 			options: []hstream.ShardReaderOpts{
-				hstream.WithShardOffset(hstream.LatestShardOffset),
+				hstream.WithShardOffset(hstream.LatestOffset),
 			},
 			shouldSuccess: true,
 		},

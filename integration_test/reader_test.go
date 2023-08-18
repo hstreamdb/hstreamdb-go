@@ -40,11 +40,11 @@ func (s *testShardReaderSuite) TearDownTest() {
 }
 
 func (s *testShardReaderSuite) TestReadFromEarliest() {
-	s.readFromSpecialOffset(hstream.EarliestShardOffset)
+	s.readFromSpecialOffset(hstream.EarliestOffset)
 }
 
 func (s *testShardReaderSuite) TestReadFromLatest() {
-	s.readFromSpecialOffset(hstream.LatestShardOffset)
+	s.readFromSpecialOffset(hstream.LatestOffset)
 }
 
 func (s *testShardReaderSuite) TestReadFromRecordId() {

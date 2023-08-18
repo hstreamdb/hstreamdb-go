@@ -44,7 +44,7 @@ func defaultReader(client *HStreamClient, streamName string, readerId string, sh
 		streamName:    streamName,
 		readerId:      readerId,
 		shardId:       shardId,
-		shardOffset:   EarliestShardOffset,
+		shardOffset:   EarliestOffset,
 		timeout:       0,
 		dataChan:      make(chan shardResult, 10),
 		closed:        0,
