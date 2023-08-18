@@ -16,55 +16,6 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var (
-	// EarliestShardOffset specifies that the data is read from the start of the shard
-	EarliestShardOffset ShardOffset = earliestShardOffset{}
-	// LatestShardOffset specifies that the data is read from the current tail of the shard
-	LatestShardOffset ShardOffset = latestShardOffset{}
-)
-
-// ShardOffset is used to specify a specific offset for the shardReader.
-type ShardOffset interface {
-	toShardOffset() *hstreampb.ShardOffset
-}
-
-type earliestShardOffset struct{}
-
-func (e earliestShardOffset) toShardOffset() *hstreampb.ShardOffset {
-	offset := hstreampb.ShardOffset_SpecialOffset{
-		SpecialOffset: hstreampb.SpecialOffset_EARLIEST,
-	}
-	return &hstreampb.ShardOffset{Offset: &offset}
-}
-
-type latestShardOffset struct{}
-
-func (e latestShardOffset) toShardOffset() *hstreampb.ShardOffset {
-	offset := hstreampb.ShardOffset_SpecialOffset{
-		SpecialOffset: hstreampb.SpecialOffset_LATEST,
-	}
-	return &hstreampb.ShardOffset{Offset: &offset}
-}
-
-type recordOffset Record.RecordId
-
-// NewRecordOffset create a RecordOffset of a shard
-func NewRecordOffset(recordId Record.RecordId) ShardOffset {
-	rid := recordOffset(recordId)
-	return rid
-}
-
-func (r recordOffset) toShardOffset() *hstreampb.ShardOffset {
-	offset := &hstreampb.ShardOffset_RecordOffset{
-		RecordOffset: &hstreampb.RecordId{
-			ShardId:    r.ShardId,
-			BatchId:    r.BatchId,
-			BatchIndex: r.BatchIndex,
-		},
-	}
-	return &hstreampb.ShardOffset{Offset: offset}
-}
-
 type shardResult struct {
 	records []Record.ReceivedRecord
 	err     error
