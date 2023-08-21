@@ -142,6 +142,25 @@ func (c *HStreamClient) DeleteStream(streamName string, opts ...DeleteStreamOpts
 	return err
 }
 
+// TrimStream will send a TrimStreamRPC to HStreamDB server and wait for response.
+func (c *HStreamClient) TrimStream(streamName string, trimPoint StreamOffset) error {
+	address, err := c.randomServer()
+	if err != nil {
+		return err
+	}
+
+	req := &hstreamrpc.Request{
+		Type: hstreamrpc.TrimStream,
+		Req: &hstreampb.TrimStreamRequest{
+			StreamName: streamName,
+			TrimPoint:  trimPoint.toStreamOffset(),
+		},
+	}
+
+	_, err = c.sendRequest(address, req)
+	return err
+}
+
 // ListStreams will send a ListStreamsRPC to HStreamDB server and wait for response.
 func (c *HStreamClient) ListStreams() ([]Stream, error) {
 	address, err := c.randomServer()

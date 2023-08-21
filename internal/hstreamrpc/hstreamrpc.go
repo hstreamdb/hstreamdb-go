@@ -15,6 +15,7 @@ type ReqType uint16
 const (
 	CreateStream ReqType = 1 + iota
 	DeleteStream
+	TrimStream
 	ListStreams
 	LookupShard
 	ListShards
@@ -48,6 +49,8 @@ func (t ReqType) String() string {
 		return "CreateStream"
 	case DeleteStream:
 		return "DeleteStream"
+	case TrimStream:
+		return "TrimStream"
 	case ListStreams:
 		return "ListStreams"
 	case LookupShard:
@@ -108,6 +111,8 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 		resp.Resp, err = cli.CreateStream(ctx, req.Req.(*hstreampb.Stream))
 	case DeleteStream:
 		resp.Resp, err = cli.DeleteStream(ctx, req.Req.(*hstreampb.DeleteStreamRequest))
+	case TrimStream:
+		resp.Resp, err = cli.TrimStream(ctx, req.Req.(*hstreampb.TrimStreamRequest))
 	case ListStreams:
 		resp.Resp, err = cli.ListStreams(ctx, req.Req.(*hstreampb.ListStreamsRequest))
 	case LookupShard:

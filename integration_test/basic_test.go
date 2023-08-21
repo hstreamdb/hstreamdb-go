@@ -65,6 +65,23 @@ func TestCreateAndDeleteStream(t *testing.T) {
 	}
 }
 
+func TestTrimStreams(t *testing.T) {
+	streamName := testStreamPrefix + uuid.New().String()
+	err := client.CreateStream(streamName, hstream.WithShardCount(5))
+	require.NoError(t, err)
+	defer func() {
+		_ = client.DeleteStream(streamName, hstream.EnableForceDelete)
+	}()
+
+	stamp := time.Now().UnixMilli()
+	err = client.TrimStream(streamName, hstream.EarliestOffset)
+	require.NoError(t, err)
+	err = client.TrimStream(streamName, hstream.NewTimestampOffset(stamp))
+	require.NoError(t, err)
+	err = client.TrimStream(streamName, hstream.LatestOffset)
+	require.NoError(t, err)
+}
+
 func TestListStreams(t *testing.T) {
 	streams := make([]string, 0, 5)
 	for i := 0; i < 5; i++ {
@@ -212,7 +229,7 @@ func TestCreateAndDeleteReader(t *testing.T) {
 		},
 		"reader from Latest": {
 			options: []hstream.ShardReaderOpts{
-				hstream.WithShardOffset(hstream.LatestShardOffset),
+				hstream.WithShardOffset(hstream.LatestOffset),
 			},
 			shouldSuccess: true,
 		},
