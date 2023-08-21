@@ -1,6 +1,8 @@
 package hstream
 
 import (
+	"fmt"
+
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 )
@@ -14,11 +16,15 @@ var (
 
 // ShardOffset is used to specify a specific offset for the shardReader.
 type ShardOffset interface {
+	// toShardOffset converts offset to proto.ShardOffset
 	toShardOffset() *hstreampb.ShardOffset
+	ToString() string
 }
 
 type StreamOffset interface {
+	// toStreamOffset converts offset to proto.StreamOffset
 	toStreamOffset() *hstreampb.StreamOffset
+	ToString() string
 }
 
 type earliestOffset struct{}
@@ -37,20 +43,28 @@ func (e earliestOffset) toStreamOffset() *hstreampb.StreamOffset {
 	return &hstreampb.StreamOffset{Offset: &offset}
 }
 
+func (e earliestOffset) ToString() string {
+	return "earliest"
+}
+
 type latestOffset struct{}
 
-func (e latestOffset) toShardOffset() *hstreampb.ShardOffset {
+func (l latestOffset) toShardOffset() *hstreampb.ShardOffset {
 	offset := hstreampb.ShardOffset_SpecialOffset{
 		SpecialOffset: hstreampb.SpecialOffset_LATEST,
 	}
 	return &hstreampb.ShardOffset{Offset: &offset}
 }
 
-func (e latestOffset) toStreamOffset() *hstreampb.StreamOffset {
+func (l latestOffset) toStreamOffset() *hstreampb.StreamOffset {
 	offset := hstreampb.StreamOffset_SpecialOffset{
 		SpecialOffset: hstreampb.SpecialOffset_LATEST,
 	}
 	return &hstreampb.StreamOffset{Offset: &offset}
+}
+
+func (l latestOffset) ToString() string {
+	return "latest"
 }
 
 type RecordOffset Record.RecordId
@@ -70,6 +84,10 @@ func (r RecordOffset) toShardOffset() *hstreampb.ShardOffset {
 		},
 	}
 	return &hstreampb.ShardOffset{Offset: offset}
+}
+
+func (r RecordOffset) ToString() string {
+	return fmt.Sprintf("RecordId: %d-%d-%d", r.ShardId, r.BatchId, r.BatchIndex)
 }
 
 type TimestampOffset int64
@@ -96,4 +114,8 @@ func (t TimestampOffset) toShardOffset() *hstreampb.ShardOffset {
 		},
 	}
 	return &hstreampb.ShardOffset{Offset: offset}
+}
+
+func (t TimestampOffset) ToString() string {
+	return fmt.Sprintf("Timestamp: %d", t)
 }
