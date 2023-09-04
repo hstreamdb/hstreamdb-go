@@ -27,7 +27,7 @@ func (mw *mainWrapper) Run() int {
 		util.Logger().Error("create client err", zap.Error(err))
 		os.Exit(1)
 	}
-	// util.SetLogLevel(util.DEBUG)
+	util.SetLogLevel(util.DEBUG)
 	return mw.m.Run()
 }
 

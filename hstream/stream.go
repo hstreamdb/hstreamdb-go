@@ -185,6 +185,29 @@ func (c *HStreamClient) ListStreams() ([]Stream, error) {
 	return res, nil
 }
 
+// TrimShards will send a TrimShardsRPC to HStreamDB server. The server will find the oldest recordId
+// in each shard, and trim all the records before that recordId(exclude)."
+func (c *HStreamClient) TrimShards(streamName string, rids []string) (map[uint64]string, error) {
+	address, err := c.randomServer()
+	if err != nil {
+		return nil, err
+	}
+
+	req := &hstreamrpc.Request{
+		Type: hstreamrpc.TrimShards,
+		Req: &hstreampb.TrimShardsRequest{
+			StreamName: streamName,
+			RecordIds:  rids,
+		},
+	}
+
+	res, err := c.sendRequest(address, req)
+	if err != nil {
+		return nil, err
+	}
+	return res.Resp.(*hstreampb.TrimShardsResponse).TrimPoints, nil
+}
+
 // NewProducer will create a Producer for specific stream
 func (c *HStreamClient) NewProducer(streamName string) (*Producer, error) {
 	return newProducer(c, streamName)

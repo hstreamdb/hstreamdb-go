@@ -28,6 +28,9 @@ type HStreamApiClient interface {
 	CreateStream(ctx context.Context, in *Stream, opts ...grpc.CallOption) (*Stream, error)
 	DeleteStream(ctx context.Context, in *DeleteStreamRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	TrimStream(ctx context.Context, in *TrimStreamRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Find the oldest recordId in each shard, and trim all the records before
+	// that recordId(exclude)."
+	TrimShards(ctx context.Context, in *TrimShardsRequest, opts ...grpc.CallOption) (*TrimShardsResponse, error)
 	GetStream(ctx context.Context, in *GetStreamRequest, opts ...grpc.CallOption) (*GetStreamResponse, error)
 	ListStreams(ctx context.Context, in *ListStreamsRequest, opts ...grpc.CallOption) (*ListStreamsResponse, error)
 	ListStreamsWithPrefix(ctx context.Context, in *ListStreamsWithPrefixRequest, opts ...grpc.CallOption) (*ListStreamsResponse, error)
@@ -138,6 +141,15 @@ func (c *hStreamApiClient) DeleteStream(ctx context.Context, in *DeleteStreamReq
 func (c *hStreamApiClient) TrimStream(ctx context.Context, in *TrimStreamRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/TrimStream", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hStreamApiClient) TrimShards(ctx context.Context, in *TrimShardsRequest, opts ...grpc.CallOption) (*TrimShardsResponse, error) {
+	out := new(TrimShardsResponse)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/TrimShards", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -797,6 +809,9 @@ type HStreamApiServer interface {
 	CreateStream(context.Context, *Stream) (*Stream, error)
 	DeleteStream(context.Context, *DeleteStreamRequest) (*emptypb.Empty, error)
 	TrimStream(context.Context, *TrimStreamRequest) (*emptypb.Empty, error)
+	// Find the oldest recordId in each shard, and trim all the records before
+	// that recordId(exclude)."
+	TrimShards(context.Context, *TrimShardsRequest) (*TrimShardsResponse, error)
 	GetStream(context.Context, *GetStreamRequest) (*GetStreamResponse, error)
 	ListStreams(context.Context, *ListStreamsRequest) (*ListStreamsResponse, error)
 	ListStreamsWithPrefix(context.Context, *ListStreamsWithPrefixRequest) (*ListStreamsResponse, error)
@@ -885,6 +900,9 @@ func (UnimplementedHStreamApiServer) DeleteStream(context.Context, *DeleteStream
 }
 func (UnimplementedHStreamApiServer) TrimStream(context.Context, *TrimStreamRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method TrimStream not implemented")
+}
+func (UnimplementedHStreamApiServer) TrimShards(context.Context, *TrimShardsRequest) (*TrimShardsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method TrimShards not implemented")
 }
 func (UnimplementedHStreamApiServer) GetStream(context.Context, *GetStreamRequest) (*GetStreamResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetStream not implemented")
@@ -1144,6 +1162,24 @@ func _HStreamApi_TrimStream_Handler(srv interface{}, ctx context.Context, dec fu
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(HStreamApiServer).TrimStream(ctx, req.(*TrimStreamRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HStreamApi_TrimShards_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TrimShardsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).TrimShards(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/TrimShards",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).TrimShards(ctx, req.(*TrimShardsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -2257,6 +2293,10 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "TrimStream",
 			Handler:    _HStreamApi_TrimStream_Handler,
+		},
+		{
+			MethodName: "TrimShards",
+			Handler:    _HStreamApi_TrimShards_Handler,
 		},
 		{
 			MethodName: "GetStream",

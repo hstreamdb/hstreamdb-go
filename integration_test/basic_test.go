@@ -1,6 +1,7 @@
 package integraion
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -80,6 +81,92 @@ func TestTrimStreams(t *testing.T) {
 	require.NoError(t, err)
 	err = client.TrimStream(streamName, hstream.LatestOffset)
 	require.NoError(t, err)
+}
+
+func TestTrimShards(t *testing.T) {
+	streamName := testStreamPrefix + uuid.New().String()
+	shardCnt := 500
+	err := client.CreateStream(streamName, hstream.WithShardCount(uint32(shardCnt)))
+	require.NoError(t, err)
+	defer func() {
+		_ = client.DeleteStream(streamName, hstream.EnableForceDelete)
+	}()
+
+	producer, err := client.NewBatchProducer(streamName, hstream.WithBatch(10, 4096), hstream.TimeOut(-1))
+	require.NoError(t, err)
+
+	keys := 1500
+	records := 30000
+	rand.Seed(time.Now().UnixNano())
+	appRes := make([]hstream.AppendResult, 0, records)
+	trimPointsIndex := make(map[string]int, keys)
+
+	for i := 0; i < records; i++ {
+		key := fmt.Sprintf("key_%d", rand.Intn(keys))
+		if _, ok := trimPointsIndex[key]; !ok && i%90 == 0 {
+			trimPointsIndex[key] = i
+		}
+		payload := map[string]interface{}{
+			"key":   key,
+			"value": i,
+		}
+		hRecord, _ := Record.NewHStreamHRecord(key, payload)
+		appRes = append(appRes, producer.Append(hRecord))
+	}
+	producer.Stop()
+
+	shardRecords := make(map[uint64][]Record.RecordId, shardCnt)
+	rids := make([]Record.RecordId, 0, records)
+	for _, res := range appRes {
+		resp, err := res.Ready()
+		require.NoError(t, err)
+		shardRecords[resp.ShardId] = append(shardRecords[resp.ShardId], resp)
+		rids = append(rids, resp)
+	}
+
+	trimPoints := make([]string, 0, keys)
+	expectedTrimRecord := make(map[uint64]Record.RecordId, shardCnt)
+	for _, value := range trimPointsIndex {
+		rid := rids[value]
+		trimPoints = append(trimPoints, rid.String())
+		if _, ok := expectedTrimRecord[rid.ShardId]; !ok {
+			expectedTrimRecord[rid.ShardId] = rid
+		} else if Record.CompareRecordId(rid, expectedTrimRecord[rid.ShardId]) < 0 {
+			expectedTrimRecord[rid.ShardId] = rid
+		}
+	}
+
+	expectedTrimPoints := make(map[uint64]string, shardCnt)
+	for shardId, rid := range expectedTrimRecord {
+		expectedTrimPoints[shardId] = rid.String()
+	}
+
+	t.Log("===== trim points =====")
+	for _, p := range trimPoints {
+		t.Log(p)
+	}
+
+	t.Log("===== expected trim points =====")
+	for _, p := range expectedTrimPoints {
+		t.Log(p)
+	}
+
+	start := time.Now()
+
+	for shardId := range expectedTrimPoints {
+		earliestPosition := Record.RecordId{ShardId: shardId}
+		trimPoints = append(trimPoints, earliestPosition.String())
+	}
+
+	res, err := client.TrimShards(streamName, trimPoints)
+	t.Logf("trim cost %d ms", time.Since(start).Milliseconds())
+	t.Log("===== trim results =====")
+	for _, p := range res {
+		t.Log(p)
+	}
+	require.NoError(t, err)
+	require.Equal(t, len(expectedTrimPoints), len(res))
+	require.EqualValues(t, expectedTrimPoints, res)
 }
 
 func TestListStreams(t *testing.T) {
