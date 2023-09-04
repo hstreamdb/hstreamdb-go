@@ -305,6 +305,7 @@ func (p *BatchProducer) Stop() {
 	for _, appender := range p.appends {
 		<-appender.waitFlushCh
 	}
+	util.Logger().Info("BatchProducer stopped", zap.String("target stream", p.streamName))
 }
 
 // Append will write batch records to the specified stream. This is an asynchronous method.
@@ -418,6 +419,9 @@ func (a *appender) fetchBatchData() uint64 {
 		select {
 		case record, ok := <-a.dataCh:
 			if !ok {
+				util.Logger().Info("dataCh closed, exit fetchBatchData",
+					zap.String("target stream", a.targetStream),
+					zap.Uint64("target shardId", a.targetShard.ShardId))
 				return a.totalPayloadBytes
 			}
 			a.buffer = append(a.buffer, record)
@@ -432,14 +436,20 @@ func (a *appender) fetchBatchData() uint64 {
 				return 0
 			}
 			return a.totalPayloadBytes
+		case <-a.stop:
+			util.Logger().Info("appender receive stop signal", zap.String("target stream", a.targetStream),
+				zap.Uint64("target shardId", a.targetShard.ShardId))
+			return a.totalPayloadBytes
 		}
 	}
 }
 
 func (a *appender) batchAppendLoop() {
-	util.Logger().Info("batchAppendLoop", zap.Uint64("shardId", a.targetShard.ShardId))
+	util.Logger().Info("batchAppendLoop start",
+		zap.String("stream", a.targetStream), zap.Uint64("shardId", a.targetShard.ShardId))
+
 	breakFlag := false
-	for !breakFlag {
+	for !breakFlag || a.isClosed == 0 {
 		select {
 		case <-a.stop:
 			util.Logger().Info("appender receive stop signal",
@@ -460,11 +470,16 @@ func (a *appender) batchAppendLoop() {
 		}
 	}
 
+	util.Logger().Info("batchAppendLoop exit",
+		zap.String("stream", a.targetStream), zap.Uint64("shardId", a.targetShard.ShardId))
+
 	a.flush()
 }
 
 func (a *appender) flush() {
 	defer close(a.waitFlushCh)
+
+	// If there still data remained in dataCh, try to send them in batch
 	for record := range a.dataCh {
 		a.buffer = append(a.buffer, record)
 		a.totalPayloadBytes += uint64(len(record.value.Payload))
@@ -475,6 +490,18 @@ func (a *appender) flush() {
 			a.release(a.totalPayloadBytes)
 		}
 	}
+
+	// If there still data remained in buffer, send them all together
+	//   - condition 1. when dataCh is closed, the data in the buffer is still not enough to form a batch.
+	//   - condition 2. after completing the previous step, there is still data left in the buffer.
+	if len(a.buffer) > 0 {
+		a.acquire(a.totalPayloadBytes)
+		a.sendAppend(a.buffer, true)
+		a.resetBuffer()
+		a.release(a.totalPayloadBytes)
+	}
+	util.Logger().Info("flush all data for appender",
+		zap.String("target stream", a.targetStream), zap.Uint64("target shard", a.targetShard.ShardId))
 }
 
 func (a *appender) acquire(need uint64) {
