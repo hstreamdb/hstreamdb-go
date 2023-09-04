@@ -45,9 +45,9 @@ func (r RecordId) String() string {
 // CompareRecordId compare two record id a and b, return
 // positive number if a > b, negative number if a < b and 0 if a == b
 func CompareRecordId(a, b RecordId) int {
-	if a.BatchId != b.BatchId {
-		return int(a.BatchIndex - b.BatchIndex)
+	if a.BatchId == b.BatchId {
+		return int(a.BatchIndex) - int(b.BatchIndex)
 	} else {
-		return int(a.BatchId - b.BatchId)
+		return int(a.BatchId) - int(b.BatchId)
 	}
 }
