@@ -182,6 +182,7 @@ type ConnectorStatsType int
 const (
 	ConnectorDeliveredInRecords ConnectorStatsType = iota + 1
 	ConnectorDeliveredInBytes
+	ConnectorIsAlive
 )
 
 func (c ConnectorStatsType) String() string {
@@ -190,6 +191,8 @@ func (c ConnectorStatsType) String() string {
 		return "ConnectorDeliveredInRecords"
 	case ConnectorDeliveredInBytes:
 		return "ConnectorDeliveredInBytes"
+	case ConnectorIsAlive:
+		return "ConnectorIsAlive"
 	}
 	return ""
 }
@@ -201,6 +204,8 @@ func (c ConnectorStatsType) toPbStat() *hstreampb.StatType {
 		tp = &hstreampb.StatType_ConnStat{ConnStat: hstreampb.ConnectorStats_DeliveredInRecords}
 	case ConnectorDeliveredInBytes:
 		tp = &hstreampb.StatType_ConnStat{ConnStat: hstreampb.ConnectorStats_DeliveredInBytes}
+	case ConnectorIsAlive:
+		tp = &hstreampb.StatType_ConnStat{ConnStat: hstreampb.ConnectorStats_IsAlive}
 	}
 	return &hstreampb.StatType{Stat: tp}
 }
