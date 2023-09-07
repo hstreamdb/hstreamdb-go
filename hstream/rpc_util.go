@@ -258,6 +258,8 @@ func ConnStatsTypeFromPb(tp *hstreampb.StatType_ConnStat) (t ConnectorStatsType)
 		t = ConnectorDeliveredInRecords
 	case hstreampb.ConnectorStats_DeliveredInBytes:
 		t = ConnectorDeliveredInBytes
+	case hstreampb.ConnectorStats_IsAlive:
+		t = ConnectorIsAlive
 	}
 	return t
 }
