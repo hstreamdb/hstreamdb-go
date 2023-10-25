@@ -2,9 +2,13 @@ package hstream
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
+	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -12,6 +16,8 @@ var (
 	EarliestOffset = earliestOffset{}
 	// LatestOffset specifies that the data is read from the current tail of the shard/stream
 	LatestOffset = latestOffset{}
+	// EmptyOffset will use the proto generated default value
+	EmptyOffset = emptyOffset{}
 )
 
 // ShardOffset is used to specify a specific offset for the shardReader.
@@ -25,6 +31,20 @@ type StreamOffset interface {
 	// toStreamOffset converts offset to proto.StreamOffset
 	toStreamOffset() *hstreampb.StreamOffset
 	ToString() string
+}
+
+type emptyOffset struct{}
+
+func (e emptyOffset) toShardOffset() *hstreampb.ShardOffset {
+	return nil
+}
+
+func (e emptyOffset) toStreamOffset() *hstreampb.StreamOffset {
+	return nil
+}
+
+func (e emptyOffset) ToString() string {
+	return "empty"
 }
 
 type earliestOffset struct{}
@@ -118,4 +138,47 @@ func (t TimestampOffset) toShardOffset() *hstreampb.ShardOffset {
 
 func (t TimestampOffset) ToString() string {
 	return fmt.Sprintf("Timestamp: %d", t)
+}
+
+func decodeReceivedRecord(record *hstreampb.ReceivedRecord, decompressors *sync.Map) ([]*hstreampb.HStreamRecord, error) {
+	batchedRecord := record.GetRecord()
+	if batchedRecord == nil {
+		return nil, nil
+	}
+	if batchedRecord.BatchSize != uint32(len(record.RecordIds)) {
+		return nil, errors.New("BatchedRecord.BatchSize != len(RecordIds), data contaminated")
+	}
+
+	compressionTp := CompressionTypeFromPb(batchedRecord.CompressionType)
+	decompressor, ok := decompressors.Load(compressionTp)
+	if !ok {
+		var newDecoder compression.Decompressor
+		switch compressionTp {
+		case compression.None:
+			newDecoder = compression.NewNoneDeCompressor()
+		case compression.Gzip:
+			newDecoder = compression.NewGzipDeCompressor()
+		case compression.Zstd:
+			newDecoder = compression.NewZstdDeCompressor()
+		}
+
+		var loaded bool
+		if decompressor, loaded = decompressors.LoadOrStore(compressionTp, newDecoder); loaded {
+			// another thread already loaded this provider, so close the one we just initialized
+			newDecoder.Close()
+		}
+	}
+	decoder := decompressor.(compression.Decompressor)
+	data := make([]byte, 0, len(batchedRecord.Payload))
+	payloads, err := decoder.Decompress(data, batchedRecord.Payload)
+	if err != nil {
+		return nil, errors.WithMessage(err, "decompress receivedRecord error")
+	}
+
+	var batchHStreamRecords hstreampb.BatchHStreamRecords
+	if err := proto.Unmarshal(payloads, &batchHStreamRecords); err != nil {
+		return nil, errors.WithMessage(err, "decode batchHStreamRecords error")
+	}
+
+	return batchHStreamRecords.GetRecords(), nil
 }
