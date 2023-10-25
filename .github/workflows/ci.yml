@@ -24,7 +24,7 @@ jobs:
         with:
           fetch-depth: "recursive"
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3.6.0
+        uses: golangci/golangci-lint-action@v3
         with:
           args: --verbose --color always
 
