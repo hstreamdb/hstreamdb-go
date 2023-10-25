@@ -21,6 +21,7 @@ const (
 	LookupShard
 	ListShards
 	Append
+	ReadStream
 
 	CreateSubscription ReqType = 256 + iota
 	ListSubscriptions
@@ -62,6 +63,8 @@ func (t ReqType) String() string {
 		return "ListShards"
 	case Append:
 		return "Append"
+	case ReadStream:
+		return "ReadStream"
 	case CreateSubscription:
 		return "CreateSubscription"
 	case ListSubscriptions:
@@ -138,6 +141,8 @@ func Call(ctx context.Context, cli hstreampb.HStreamApiClient, req *Request) (*R
 		resp.Resp, err = cli.LookupSubscription(ctx, req.Req.(*hstreampb.LookupSubscriptionRequest))
 	case StreamingFetch:
 		resp.Resp, err = cli.StreamingFetch(ctx, retry.FetchRetry()...)
+	case ReadStream:
+		resp.Resp, err = cli.ReadStream(ctx, req.Req.(*hstreampb.ReadStreamRequest))
 	case DescribeCluster:
 		resp.Resp, err = cli.DescribeCluster(ctx, req.Req.(*emptypb.Empty))
 	case AdminRequest:

@@ -7,15 +7,12 @@ import (
 	"time"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
-	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -291,47 +288,4 @@ func (c *Consumer) handleFetchError(err error) chan FetchRecords {
 	c.dataChannel <- errRes
 	close(c.dataChannel)
 	return c.dataChannel
-}
-
-func decodeReceivedRecord(record *hstreampb.ReceivedRecord, decompressors *sync.Map) ([]*hstreampb.HStreamRecord, error) {
-	batchedRecord := record.GetRecord()
-	if batchedRecord == nil {
-		return nil, nil
-	}
-	if batchedRecord.BatchSize != uint32(len(record.RecordIds)) {
-		return nil, errors.New("BatchedRecord.BatchSize != len(RecordIds), data contaminated")
-	}
-
-	compressionTp := CompressionTypeFromPb(batchedRecord.CompressionType)
-	decompressor, ok := decompressors.Load(compressionTp)
-	if !ok {
-		var newDecoder compression.Decompressor
-		switch compressionTp {
-		case compression.None:
-			newDecoder = compression.NewNoneDeCompressor()
-		case compression.Gzip:
-			newDecoder = compression.NewGzipDeCompressor()
-		case compression.Zstd:
-			newDecoder = compression.NewZstdDeCompressor()
-		}
-
-		var loaded bool
-		if decompressor, loaded = decompressors.LoadOrStore(compressionTp, newDecoder); loaded {
-			// another thread already loaded this provider, so close the one we just initialized
-			newDecoder.Close()
-		}
-	}
-	decoder := decompressor.(compression.Decompressor)
-	data := make([]byte, 0, len(batchedRecord.Payload))
-	payloads, err := decoder.Decompress(data, batchedRecord.Payload)
-	if err != nil {
-		return nil, errors.WithMessage(err, "decompress receivedRecord error")
-	}
-
-	var batchHStreamRecords hstreampb.BatchHStreamRecords
-	if err := proto.Unmarshal(payloads, &batchHStreamRecords); err != nil {
-		return nil, errors.WithMessage(err, "decode batchHStreamRecords error")
-	}
-
-	return batchHStreamRecords.GetRecords(), nil
 }
