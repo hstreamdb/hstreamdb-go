@@ -1,15 +1,15 @@
 module github.com/hstreamdb/hstreamdb-go
 
-go 1.19
+go 1.21
 
 require (
 	github.com/google/btree v1.1.2
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.4.0
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/klauspost/compress v1.17.2
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.4
-	go.uber.org/goleak v1.2.1
+	go.uber.org/goleak v1.3.0
 	go.uber.org/zap v1.26.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
