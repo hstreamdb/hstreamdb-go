@@ -7,6 +7,7 @@ import (
 	"github.com/hstreamdb/hstreamdb-go/hstream/security"
 	"github.com/hstreamdb/hstreamdb-go/internal/client"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
+	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 // HStreamClient is the client for the HStreamDB service.
@@ -76,4 +77,8 @@ func (c *HStreamClient) randomServer() (string, error) {
 	}
 	idx := rand.Intn(len(infos))
 	return infos[idx], nil
+}
+
+func (c *HStreamClient) SetLogLevel(level util.LogLevel) {
+	util.SetLogLevel(level)
 }
