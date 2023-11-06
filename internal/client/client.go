@@ -57,6 +57,7 @@ type RPCClient struct {
 	connections map[string]*grpc.ClientConn
 	serverInfo  serverList
 	tlsCfg      *tls.Config
+	token       string
 	// closed == 0 means client is closed
 	closed int32
 	// Millisecond timestamp of the last update of the server node information
@@ -114,7 +115,7 @@ func (c *RPCClient) isClosed() bool {
 }
 
 // NewRPCClient TODO：use connection pool for each address
-func NewRPCClient(address string, tlsCfg security.TLSAuth) (*RPCClient, error) {
+func NewRPCClient(address string, tlsCfg security.TLSAuth, token string) (*RPCClient, error) {
 	address = strings.TrimSpace(address)
 	schema := strings.Split(address, "://")
 	if len(schema) != 2 {
@@ -146,6 +147,10 @@ func NewRPCClient(address string, tlsCfg security.TLSAuth) (*RPCClient, error) {
 			return nil, err
 		}
 		cli.tlsCfg = cfg
+	}
+
+	if len(token) != 0 {
+		cli.token = token
 	}
 
 	if err := cli.updateServerInfo(); err != nil {
@@ -228,13 +233,21 @@ func (c *RPCClient) createConnection(address string) (*grpc.ClientConn, error) {
 // when the function return success, the connection is ready to use.
 func (c *RPCClient) connect(address string) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), DialTimeout)
+	unaryInterceptors := []grpc.UnaryClientInterceptor{hstreamrpc.UnaryClientInterceptor, grpc_retry.UnaryClientInterceptor()}
+	streamInterceptors := []grpc.StreamClientInterceptor{}
 	tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
 	if c.tlsCfg != nil {
 		tlsOpt = grpc.WithTransportCredentials(credentials.NewTLS(c.tlsCfg))
 	}
+	if len(c.token) != 0 {
+		unaryInterceptors = append(unaryInterceptors, hstreamrpc.RegistUnaryAuthInterceptor(c.token))
+		streamInterceptors = append(streamInterceptors, hstreamrpc.RegistStreamAuthInterceptor(c.token))
+	}
 	conn, err := grpc.DialContext(ctx, address, tlsOpt,
 		grpc.WithUnaryInterceptor(
-			grpc_middleware.ChainUnaryClient(hstreamrpc.UnaryClientInterceptor, grpc_retry.UnaryClientInterceptor())),
+			grpc_middleware.ChainUnaryClient(unaryInterceptors...)),
+		grpc.WithStreamInterceptor(
+			grpc_middleware.ChainStreamClient(streamInterceptors...)),
 	)
 	if err != nil {
 		cancel()

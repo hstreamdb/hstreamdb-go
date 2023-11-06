@@ -20,7 +20,7 @@ type mainWrapper struct {
 
 func (mw *mainWrapper) Run() int {
 	var err error
-	client, err = hstream.NewHStreamClient(serverUrl)
+	client, err = hstream.NewHStreamClient(serverUrl, hstream.WithAuthToken("aHN0cmVhbTpoc3RyZWFt"))
 	defer client.Close()
 
 	if err != nil {

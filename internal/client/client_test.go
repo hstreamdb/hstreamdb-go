@@ -29,7 +29,7 @@ func TestParseUrl(t *testing.T) {
 		tc := tc
 		t.Run(tc.testName, func(t *testing.T) {
 			t.Parallel()
-			client, err := NewRPCClient(tc.input, security.TLSAuth{})
+			client, err := NewRPCClient(tc.input, security.TLSAuth{}, "")
 			defer client.Close()
 			require.NoError(t, err)
 			require.Equal(t, tc.want, client.serverInfo)
