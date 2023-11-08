@@ -15,37 +15,48 @@ type HStreamClient struct {
 	client.Client
 }
 
-// TLSOps set tls configurations
-type TLSOps func(cfg *security.TLSAuth)
+type authConfig struct {
+	tlsCfg security.TLSAuth
+	token  string
+}
+
+// AuthOpts set tls configurations
+type AuthOpts func(cfg *authConfig)
 
 // WithCaCert set ca path
-func WithCaCert(ca string) TLSOps {
-	return func(cfg *security.TLSAuth) {
-		cfg.ClusterSSLCA = ca
+func WithCaCert(ca string) AuthOpts {
+	return func(cfg *authConfig) {
+		cfg.tlsCfg.ClusterSSLCA = ca
 	}
 }
 
 // WithClientCert set client cert path
-func WithClientCert(cert string) TLSOps {
-	return func(cfg *security.TLSAuth) {
-		cfg.ClusterSSLCert = cert
+func WithClientCert(cert string) AuthOpts {
+	return func(cfg *authConfig) {
+		cfg.tlsCfg.ClusterSSLCert = cert
 	}
 }
 
 // WithClientKey set client key path
-func WithClientKey(key string) TLSOps {
-	return func(cfg *security.TLSAuth) {
-		cfg.ClusterSSLKey = key
+func WithClientKey(key string) AuthOpts {
+	return func(cfg *authConfig) {
+		cfg.tlsCfg.ClusterSSLKey = key
 	}
 }
 
-func NewHStreamClient(address string, tlsOps ...TLSOps) (*HStreamClient, error) {
-	tlsCfg := security.TLSAuth{}
-	for _, cfg := range tlsOps {
-		cfg(&tlsCfg)
+func WithAuthToken(token string) AuthOpts {
+	return func(cfg *authConfig) {
+		cfg.token = token
+	}
+}
+
+func NewHStreamClient(address string, authOps ...AuthOpts) (*HStreamClient, error) {
+	authCfg := authConfig{}
+	for _, cfg := range authOps {
+		cfg(&authCfg)
 	}
 
-	cli, err := client.NewRPCClient(address, tlsCfg)
+	cli, err := client.NewRPCClient(address, authCfg.tlsCfg, authCfg.token)
 	if err != nil {
 		return nil, err
 	}

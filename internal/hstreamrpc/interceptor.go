@@ -8,6 +8,7 @@ import (
 	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 )
 
 func UnaryClientInterceptor(ctx context.Context, method string, req, reply interface{},
@@ -39,4 +40,24 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 		return err
 	}
 	return nil
+}
+
+func RegistUnaryAuthInterceptor(token string) func(ctx context.Context, method string, req, reply any,
+	cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+
+	return func(ctx context.Context, method string, req, reply any,
+		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		newCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Basic "+token)
+		return invoker(newCtx, method, req, reply, cc, opts...)
+	}
+}
+
+func RegistStreamAuthInterceptor(token string) func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn,
+	method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn,
+		method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		newCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Basic "+token)
+		return streamer(newCtx, desc, cc, method, opts...)
+	}
 }
