@@ -30,14 +30,14 @@ const (
 	RequestTimeout = 5 * time.Second
 	// UpdateServerInfoDuration TODO: support config by user
 	// Period of updating server node information in milliseconds
-	UpdateServerInfoDuration = 60000 // 60s
+	UpdateServerInfoDuration = 30000 // 30s
 )
 
 // Client is a client that sends RPC to HStreamDB server.
 // It should not be used after calling Close().
 type Client interface {
 	// GetServerInfo returns the basic server infos of the cluster.
-	GetServerInfo() ([]string, error)
+	GetServerInfo(force bool) ([]string, error)
 	// SendRequest sends a rpc request to the server.
 	SendRequest(ctx context.Context, address string, req *hstreamrpc.Request) (*hstreamrpc.Response, error)
 	// Close closes the client.
@@ -64,10 +64,10 @@ type RPCClient struct {
 	lastServerInfoTs atomic.Int64
 }
 
-// GetServerInfo If the current time does not exceed the update period since the last update,
-// the cached server node information is returned, otherwise try to update the node information and return
-func (c *RPCClient) GetServerInfo() ([]string, error) {
-	if time.Now().UnixMilli()-c.lastServerInfoTs.Load() >= UpdateServerInfoDuration {
+// GetServerInfo If the current time does not exceed the update period since the last update, or the force parameter is
+// false, the cached server node information is returned, otherwise try to update the node information and return
+func (c *RPCClient) GetServerInfo(force bool) ([]string, error) {
+	if force || time.Now().UnixMilli()-c.lastServerInfoTs.Load() >= UpdateServerInfoDuration {
 		if err := c.updateServerInfo(); err != nil {
 			return nil, err
 		}
@@ -78,6 +78,7 @@ func (c *RPCClient) GetServerInfo() ([]string, error) {
 	if len(c.serverInfo) == 0 {
 		return nil, errors.New("no server info")
 	}
+	util.Logger().Debug("GetServerInfo return", zap.String("serverInfo", c.serverInfo.String()))
 	return c.serverInfo, nil
 }
 
