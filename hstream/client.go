@@ -82,7 +82,7 @@ func (c *HStreamClient) sendRequest(address string, req *hstreamrpc.Request) (*h
 }
 
 func (c *HStreamClient) randomServer() (string, error) {
-	infos, err := c.GetServerInfo()
+	infos, err := c.GetServerInfo(false)
 	if err != nil {
 		return "", err
 	}
