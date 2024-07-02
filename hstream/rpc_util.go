@@ -248,6 +248,8 @@ func StatsTypeFromPb(tp *hstreampb.StatType) StatType {
 		return QueryStatsTypeFromPb(st)
 	case *hstreampb.StatType_ViewStat:
 		return ViewStatsTypeFromPb(st)
+	case *hstreampb.StatType_CacheStoreStat:
+		return CacheStoreStatsTypeFromPb(st)
 	}
 	return nil
 }
@@ -278,6 +280,26 @@ func StreamStatsTypeFromPb(tp *hstreampb.StatType_StreamStat) (t StreamStatsType
 		t = StreamReadInBytes
 	case hstreampb.StreamStats_ReadInBatches:
 		t = StreamReadInBatches
+	}
+	return t
+}
+
+func CacheStoreStatsTypeFromPb(tp *hstreampb.StatType_CacheStoreStat) (t CacheStoreStatsType) {
+	switch tp.CacheStoreStat {
+	case hstreampb.CacheStoreStats_CSAppendInBytes:
+		t = CacheStoreAppendInBytes
+	case hstreampb.CacheStoreStats_CSAppendInRecords:
+		t = CacheStoreAppendInRecords
+	case hstreampb.CacheStoreStats_CSAppendTotal:
+		t = CacheStoreAppendTotal
+	case hstreampb.CacheStoreStats_CSAppendFailed:
+		t = CacheStoreAppendFailed
+	case hstreampb.CacheStoreStats_CSReadInBytes:
+		t = CacheStoreReadInBytes
+	case hstreampb.CacheStoreStats_CSReadInRecords:
+		t = CacheStoreReadInRecords
+	case hstreampb.CacheStoreStats_CSDeliveredInRecords:
+		t = CacheStoreDeliveredInRecords
 	}
 	return t
 }

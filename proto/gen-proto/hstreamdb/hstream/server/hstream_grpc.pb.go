@@ -95,6 +95,7 @@ type HStreamApiClient interface {
 	DeleteConnector(ctx context.Context, in *DeleteConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	PauseConnector(ctx context.Context, in *PauseConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ResumeConnector(ctx context.Context, in *ResumeConnectorRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	AlterConnectorConfig(ctx context.Context, in *AlterConnectorConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// view related apis
 	ListViews(ctx context.Context, in *ListViewsRequest, opts ...grpc.CallOption) (*ListViewsResponse, error)
 	GetView(ctx context.Context, in *GetViewRequest, opts ...grpc.CallOption) (*View, error)
@@ -755,6 +756,15 @@ func (c *hStreamApiClient) ResumeConnector(ctx context.Context, in *ResumeConnec
 	return out, nil
 }
 
+func (c *hStreamApiClient) AlterConnectorConfig(ctx context.Context, in *AlterConnectorConfigRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/AlterConnectorConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *hStreamApiClient) ListViews(ctx context.Context, in *ListViewsRequest, opts ...grpc.CallOption) (*ListViewsResponse, error) {
 	out := new(ListViewsResponse)
 	err := c.cc.Invoke(ctx, "/hstream.server.HStreamApi/ListViews", in, out, opts...)
@@ -876,6 +886,7 @@ type HStreamApiServer interface {
 	DeleteConnector(context.Context, *DeleteConnectorRequest) (*emptypb.Empty, error)
 	PauseConnector(context.Context, *PauseConnectorRequest) (*emptypb.Empty, error)
 	ResumeConnector(context.Context, *ResumeConnectorRequest) (*emptypb.Empty, error)
+	AlterConnectorConfig(context.Context, *AlterConnectorConfigRequest) (*emptypb.Empty, error)
 	// view related apis
 	ListViews(context.Context, *ListViewsRequest) (*ListViewsResponse, error)
 	GetView(context.Context, *GetViewRequest) (*View, error)
@@ -1065,6 +1076,9 @@ func (UnimplementedHStreamApiServer) PauseConnector(context.Context, *PauseConne
 }
 func (UnimplementedHStreamApiServer) ResumeConnector(context.Context, *ResumeConnectorRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResumeConnector not implemented")
+}
+func (UnimplementedHStreamApiServer) AlterConnectorConfig(context.Context, *AlterConnectorConfigRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AlterConnectorConfig not implemented")
 }
 func (UnimplementedHStreamApiServer) ListViews(context.Context, *ListViewsRequest) (*ListViewsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListViews not implemented")
@@ -2181,6 +2195,24 @@ func _HStreamApi_ResumeConnector_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _HStreamApi_AlterConnectorConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AlterConnectorConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HStreamApiServer).AlterConnectorConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/hstream.server.HStreamApi/AlterConnectorConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HStreamApiServer).AlterConnectorConfig(ctx, req.(*AlterConnectorConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _HStreamApi_ListViews_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ListViewsRequest)
 	if err := dec(in); err != nil {
@@ -2493,6 +2525,10 @@ var HStreamApi_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ResumeConnector",
 			Handler:    _HStreamApi_ResumeConnector_Handler,
+		},
+		{
+			MethodName: "AlterConnectorConfig",
+			Handler:    _HStreamApi_AlterConnectorConfig_Handler,
 		},
 		{
 			MethodName: "ListViews",
