@@ -4,7 +4,7 @@ set -xeuo pipefail
 
 function cluster_up() {
   docker pull hstreamdb/hstream
-  docker pull zookeeper
+  docker pull zookeeper:3.8
   docker-compose up -d
 
   timeout=60
