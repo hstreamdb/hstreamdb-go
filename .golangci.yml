@@ -3,55 +3,19 @@ run:
 linters:
   disable-all: true
   enable:
-    - ineffassign
-    - typecheck
-    - gosimple
-    - goimports
-    # - errcheck
-    # - stylecheck
-    - asciicheck
-    - exportloopref
-    # - staticcheck
-    - makezero
-    - prealloc
-    - predeclared
+    - gci
+    - gofumpt
+    - govet
+#    - staticcheck
     - misspell
     - unconvert
-    - govet
-    - gocritic
-    - bodyclose
+    - usestdlibvars
 
 linters-settings:
-  gocritic:
-    enabled-checks:
-      # Diagnostic
-      - sloppyReassign
-      - weakCond
-
-      # Performance
-      - appendCombine
-      - equalFold
-      - hugeParam
-      - indexAlloc
-      - rangeExprCopy
-      - rangeValCopy
-      - sliceClear
-      - stringXbytes
-
-      # Style
-      - boolExprSimplify
-      - elseif
-      - emptyFallthrough
-      # - emptyStringTest
-      - hexLiteral
-      - methodExprCall
-      - typeAssertChain
-
-      # Opinionated
-      - builtinShadow
-      - importShadow
-      - initClause
-      - nestingReduce
-      - ptrToRefParam
-      - typeUnparen
-      - unnecessaryBlock
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/hstreamdb/hstreamdb-go)
+#  staticcheck:
+#    go: '1.21'

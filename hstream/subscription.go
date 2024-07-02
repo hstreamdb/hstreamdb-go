@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 type SubscriptionOffset uint8

@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
 	"github.com/hstreamdb/hstreamdb-go/util/test_util"
-	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
 const (
@@ -221,7 +222,7 @@ func consumeRecords(t *testing.T, subId string, recordSize int) []string {
 				fetchRes = append(fetchRes, rid.String())
 				record.Ack()
 			}
-			//t.Logf("total fetched: %d", len(fetchRes))
+			// t.Logf("total fetched: %d", len(fetchRes))
 			if len(fetchRes) == recordSize {
 				return fetchRes
 			}

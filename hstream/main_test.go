@@ -4,9 +4,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/goleak"
 	"go.uber.org/zap"
+
+	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 type mainWrapper struct {

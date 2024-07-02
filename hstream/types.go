@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
+
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/hstream/compression"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
-	"github.com/pkg/errors"
-	"google.golang.org/protobuf/proto"
 )
 
 var (

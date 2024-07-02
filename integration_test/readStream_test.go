@@ -7,10 +7,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hstreamdb/hstreamdb-go/hstream"
-	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+
+	"github.com/hstreamdb/hstreamdb-go/hstream"
+	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 )
 
 func TestReadStream(t *testing.T) {
@@ -45,7 +46,6 @@ func (s *testReadStreamSuite) TestReadToLatest() {
 }
 
 func (s *testReadStreamSuite) readFromSpecialOffset(from, to hstream.StreamOffset, total uint64) {
-
 	totalRecords := 1000
 
 	producer, err := client.NewProducer(s.streamName)

@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"io"
 
-	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/klauspost/compress/gzip"
 	"go.uber.org/zap"
+
+	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 type GzipCompressor struct {

@@ -7,9 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hstreamdb/hstreamdb-go/hstream"
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
-	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -36,18 +37,20 @@ func TestCreateAndDeleteStream(t *testing.T) {
 			options: []hstream.StreamOpts{
 				hstream.WithReplicationFactor(0),
 			},
-			shouldSuccess: false},
+			shouldSuccess: false,
+		},
 		"invaild shard count": {
 			options: []hstream.StreamOpts{
 				hstream.WithShardCount(0),
 			},
-			shouldSuccess: false},
+			shouldSuccess: false,
+		},
 	}
 
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			//t.Parallel()
+			// t.Parallel()
 			streamName := testStreamPrefix + uuid.New().String()
 			err := client.CreateStream(streamName, tc.options...)
 			defer func() {
@@ -210,12 +213,14 @@ func TestCreateAndDeleteSub(t *testing.T) {
 			options: []hstream.SubscriptionOpts{
 				hstream.WithAckTimeout(0),
 			},
-			shouldSuccess: false},
+			shouldSuccess: false,
+		},
 		"invaild unacked records": {
 			options: []hstream.SubscriptionOpts{
 				hstream.WithMaxUnackedRecords(0),
 			},
-			shouldSuccess: false},
+			shouldSuccess: false,
+		},
 	}
 
 	streamName := testStreamPrefix + "sub_test_stream"

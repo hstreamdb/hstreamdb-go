@@ -4,15 +4,17 @@ import (
 	"context"
 	"reflect"
 
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
-	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
+
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 func UnaryClientInterceptor(ctx context.Context, method string, req, reply interface{},
-	cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+	cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption,
+) error {
 	commFields := []zap.Field{
 		zap.String("method", method),
 		zap.String("target", cc.Target()),
@@ -27,7 +29,7 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 	case *hstreampb.Subscription:
 		commFields = append(commFields, zap.String("req", req.String()))
 	case *hstreampb.AppendRequest:
-		//commFields = append(commFields, zap.String("req", req.String()))
+		// commFields = append(commFields, zap.String("req", req.String()))
 	default:
 	}
 	util.Logger().Debug("unaryRPC", commFields...)
@@ -44,9 +46,9 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 
 func RegistUnaryAuthInterceptor(token string) func(ctx context.Context, method string, req, reply any,
 	cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
-
 	return func(ctx context.Context, method string, req, reply any,
-		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption,
+	) error {
 		newCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Basic "+token)
 		return invoker(newCtx, method, req, reply, cc, opts...)
 	}
@@ -54,9 +56,9 @@ func RegistUnaryAuthInterceptor(token string) func(ctx context.Context, method s
 
 func RegistStreamAuthInterceptor(token string) func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn,
 	method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-
 	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn,
-		method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		method string, streamer grpc.Streamer, opts ...grpc.CallOption,
+	) (grpc.ClientStream, error) {
 		newCtx := metadata.AppendToOutgoingContext(ctx, "authorization", "Basic "+token)
 		return streamer(newCtx, desc, cc, method, opts...)
 	}

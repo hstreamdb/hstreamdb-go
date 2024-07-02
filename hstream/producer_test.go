@@ -5,12 +5,13 @@ import (
 	"testing"
 	"time"
 
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
-	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
+
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
+	"github.com/hstreamdb/hstreamdb-go/util/test_util"
 )
 
 const (

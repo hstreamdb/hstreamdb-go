@@ -14,8 +14,8 @@ func TestTLSConfig(t *testing.T) {
 	keyFile := filepath.Join(filepath.Dir(t.TempDir()), "key.pem")
 	defer os.Remove(keyFile)
 
-	assert.Nil(t, os.WriteFile(certFile, []byte(cert), 0666))
-	assert.Nil(t, os.WriteFile(keyFile, []byte(key), 0666))
+	assert.Nil(t, os.WriteFile(certFile, []byte(cert), 0o666))
+	assert.Nil(t, os.WriteFile(keyFile, []byte(key), 0o666))
 
 	security := TLSAuth{
 		ClusterSSLCA:   certFile,

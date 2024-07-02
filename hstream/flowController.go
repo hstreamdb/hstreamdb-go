@@ -3,8 +3,9 @@ package hstream
 import (
 	"sync"
 
-	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/zap"
+
+	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 type flowController struct {

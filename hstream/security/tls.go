@@ -6,9 +6,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/hstreamdb/hstreamdb-go/util"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+
+	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 type TLSAuth struct {

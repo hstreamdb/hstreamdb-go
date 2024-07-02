@@ -3,10 +3,10 @@ package hstreamrpc
 import (
 	"context"
 
-	"github.com/hstreamdb/hstreamdb-go/internal/retry"
-
-	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"google.golang.org/protobuf/types/known/emptypb"
+
+	"github.com/hstreamdb/hstreamdb-go/internal/retry"
+	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 )
 
 // ReqType represents the concrete rpc request type in Request.

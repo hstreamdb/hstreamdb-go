@@ -5,9 +5,10 @@ import (
 	"sort"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/util"
-	"go.uber.org/zap"
 )
 
 var ServerUrl = "localhost:6580,localhost:6581,localhost:6582"

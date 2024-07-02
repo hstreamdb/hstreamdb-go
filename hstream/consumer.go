@@ -6,13 +6,14 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/hstreamdb/hstreamdb-go/hstream/Record"
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 	"github.com/hstreamdb/hstreamdb-go/util"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -138,7 +139,6 @@ func sendAcks(c *Consumer, stream hstreampb.HStreamApi_StreamingFetchClient, ack
 	for i := 0; i < len(ackIds); i++ {
 		ackIds[i] = nil
 	}
-	ackIds = ackIds[:0]
 }
 
 // flushAckChannel will flush all unsend ackIds to server before consumer closed.

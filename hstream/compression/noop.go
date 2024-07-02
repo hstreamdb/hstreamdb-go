@@ -2,8 +2,7 @@ package compression
 
 import "bytes"
 
-type NoneCompressor struct {
-}
+type NoneCompressor struct{}
 
 func NewNoneCompressor() Compressor {
 	return &NoneCompressor{}
@@ -26,8 +25,7 @@ func (n *NoneCompressor) Compress(dst, src []byte) []byte {
 func (n *NoneCompressor) Close() {
 }
 
-type NoneDeCompressor struct {
-}
+type NoneDeCompressor struct{}
 
 func NewNoneDeCompressor() Decompressor {
 	return &NoneDeCompressor{}

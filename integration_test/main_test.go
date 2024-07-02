@@ -4,10 +4,11 @@ import (
 	"os"
 	"testing"
 
-	"github.com/hstreamdb/hstreamdb-go/hstream"
-	"github.com/hstreamdb/hstreamdb-go/util"
 	"go.uber.org/goleak"
 	"go.uber.org/zap"
+
+	"github.com/hstreamdb/hstreamdb-go/hstream"
+	"github.com/hstreamdb/hstreamdb-go/util"
 )
 
 var serverUrl = "hstream://172.16.156.11:6580"

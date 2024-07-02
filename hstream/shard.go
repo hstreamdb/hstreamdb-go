@@ -4,6 +4,7 @@ import (
 	"math/big"
 
 	"github.com/google/btree"
+
 	"github.com/hstreamdb/hstreamdb-go/internal/hstreamrpc"
 	hstreampb "github.com/hstreamdb/hstreamdb-go/proto/gen-proto/hstreamdb/hstream/server"
 )
@@ -63,6 +64,7 @@ func NewShardMap(degree int) *ShardMap {
 		mp: btree.NewG(degree, func(a, b *Shard) bool { return a.Less(b) }),
 	}
 }
+
 func newSearchItem(key string) *Shard {
 	return &Shard{StartHashKey: key}
 }
