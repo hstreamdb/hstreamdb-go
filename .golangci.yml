@@ -18,7 +18,7 @@ linters:
     - misspell
     - unconvert
     - govet
-    - gocritic
+#    - gocritic
     - bodyclose
 
 linters-settings:

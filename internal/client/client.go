@@ -133,7 +133,7 @@ func NewRPCClient(address string, tlsCfg security.TLSAuth, token string) (*RPCCl
 		if strings.Contains(host, ":") {
 			continue
 		}
-		hosts[i] = hosts[i] + ":6570"
+		hosts[i] += ":6570"
 	}
 
 	cli := &RPCClient{

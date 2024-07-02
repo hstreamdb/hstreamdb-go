@@ -47,7 +47,7 @@ func TestCreateAndDeleteStream(t *testing.T) {
 	for name, tc := range tests {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			//t.Parallel()
+			// t.Parallel()
 			streamName := testStreamPrefix + uuid.New().String()
 			err := client.CreateStream(streamName, tc.options...)
 			defer func() {
