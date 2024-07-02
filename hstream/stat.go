@@ -61,7 +61,7 @@ func (s StreamStatsType) toPbStat() *hstreampb.StatType {
 type SubscriptionStatsType int
 
 const (
-	SubSendOutBytes SubscriptionStatsType = iota + 1
+	SubSendOutBytes SubscriptionStatsType = iota + 100
 	SubSendOutRecords
 	SubSendOutRecordsFailed
 	SubResendRecords
@@ -124,7 +124,7 @@ func (s SubscriptionStatsType) toPbStat() *hstreampb.StatType {
 type QueryStatsType int
 
 const (
-	QueryTotalInputRecords QueryStatsType = iota + 1
+	QueryTotalInputRecords QueryStatsType = iota + 200
 	QueryTotalOutputRecords
 	QueryTotalExcuteErrors
 )
@@ -157,7 +157,7 @@ func (q QueryStatsType) toPbStat() *hstreampb.StatType {
 type ViewStatsType int
 
 const (
-	ViewTotalExecuteQueries ViewStatsType = iota + 1
+	ViewTotalExecuteQueries ViewStatsType = iota + 300
 )
 
 func (v ViewStatsType) String() string {
@@ -180,7 +180,7 @@ func (v ViewStatsType) toPbStat() *hstreampb.StatType {
 type ConnectorStatsType int
 
 const (
-	ConnectorDeliveredInRecords ConnectorStatsType = iota + 1
+	ConnectorDeliveredInRecords ConnectorStatsType = iota + 400
 	ConnectorDeliveredInBytes
 	ConnectorIsAlive
 )
@@ -206,6 +206,59 @@ func (c ConnectorStatsType) toPbStat() *hstreampb.StatType {
 		tp = &hstreampb.StatType_ConnStat{ConnStat: hstreampb.ConnectorStats_DeliveredInBytes}
 	case ConnectorIsAlive:
 		tp = &hstreampb.StatType_ConnStat{ConnStat: hstreampb.ConnectorStats_IsAlive}
+	}
+	return &hstreampb.StatType{Stat: tp}
+}
+
+type CacheStoreStatsType int
+
+const (
+	CacheStoreAppendInBytes CacheStoreStatsType = iota + 500
+	CacheStoreAppendInRecords
+	CacheStoreAppendTotal
+	CacheStoreAppendFailed
+	CacheStoreReadInBytes
+	CacheStoreReadInRecords
+	CacheStoreDeliveredInRecords
+)
+
+func (c CacheStoreStatsType) String() string {
+	switch c {
+	case CacheStoreAppendInBytes:
+		return "CacheStoreAppendInBytes"
+	case CacheStoreAppendInRecords:
+		return "CacheStoreAppendInRecords"
+	case CacheStoreAppendTotal:
+		return "CacheStoreAppendTotal"
+	case CacheStoreAppendFailed:
+		return "CacheStoreAppendFailed"
+	case CacheStoreReadInBytes:
+		return "CacheStoreReadInBytes"
+	case CacheStoreReadInRecords:
+		return "CacheStoreReadInRecords"
+	case CacheStoreDeliveredInRecords:
+		return "CacheStoreDeliveredInRecords"
+	}
+	return ""
+}
+
+func (c CacheStoreStatsType) toPbStat() *hstreampb.StatType {
+	var tp *hstreampb.StatType_CacheStoreStat
+	switch c {
+	case CacheStoreAppendInBytes:
+		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSAppendInBytes}
+	case CacheStoreAppendInRecords:
+		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSAppendInRecords}
+	case CacheStoreAppendTotal:
+		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSAppendTotal}
+	case CacheStoreAppendFailed:
+		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSAppendFailed}
+	case CacheStoreReadInBytes:
+		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSReadInBytes}
+	case CacheStoreReadInRecords:
+		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSReadInRecords}
+	case CacheStoreDeliveredInRecords:
+		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSDeliveredInRecords}
 	}
 	return &hstreampb.StatType{Stat: tp}
 }

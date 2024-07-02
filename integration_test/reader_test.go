@@ -3,6 +3,7 @@ package integraion
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -130,7 +131,7 @@ func (s *testShardReaderSuite) readFromSpecialOffset(offset hstream.ShardOffset)
 			defer cancel()
 			for {
 				res, err := reader.Read(ctx)
-				if err == context.DeadlineExceeded {
+				if errors.Is(err, context.DeadlineExceeded) {
 					break
 				}
 				require.NoError(s.T(), err)
