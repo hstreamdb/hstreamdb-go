@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-//func TestAdmin(t *testing.T) {
+// func TestAdmin(t *testing.T) {
 //	suite.Run(t, new(testAdminSuite))
 //}
 

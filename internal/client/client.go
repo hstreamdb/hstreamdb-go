@@ -133,7 +133,7 @@ func NewRPCClient(address string, tlsCfg security.TLSAuth, token string) (*RPCCl
 		if strings.Contains(host, ":") {
 			continue
 		}
-		hosts[i] = hosts[i] + ":6570"
+		hosts[i] += ":6570"
 	}
 
 	cli := &RPCClient{
@@ -170,7 +170,7 @@ func (c *RPCClient) updateServerInfo() error {
 	for _, addr := range addrs {
 		info, err := c.requestServerInfo(addr)
 		if err != nil {
-			util.Logger().Warn("Failed to request serverInfo", zap.String("address", addr), zap.Error(err))
+			util.Logger().Warn("Failed to request serverInfo", zap.String("address", addr), zap.String("error", err.Error()))
 			continue
 		}
 

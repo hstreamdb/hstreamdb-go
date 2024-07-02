@@ -27,7 +27,7 @@ func UnaryClientInterceptor(ctx context.Context, method string, req, reply inter
 	case *hstreampb.Subscription:
 		commFields = append(commFields, zap.String("req", req.String()))
 	case *hstreampb.AppendRequest:
-		//commFields = append(commFields, zap.String("req", req.String()))
+		// commFields = append(commFields, zap.String("req", req.String()))
 	default:
 	}
 	util.Logger().Debug("unaryRPC", commFields...)

@@ -221,7 +221,7 @@ func consumeRecords(t *testing.T, subId string, recordSize int) []string {
 				fetchRes = append(fetchRes, rid.String())
 				record.Ack()
 			}
-			//t.Logf("total fetched: %d", len(fetchRes))
+			// t.Logf("total fetched: %d", len(fetchRes))
 			if len(fetchRes) == recordSize {
 				return fetchRes
 			}

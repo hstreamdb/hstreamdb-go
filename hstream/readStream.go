@@ -73,7 +73,7 @@ func (c *HStreamClient) ReadStream(streamName string, from StreamOffset, until S
 				}
 
 				recordIds := record.GetRecordIds()
-				//util.Logger().Info(fmt.Sprintf("read %d records from stream: %s", len(recordIds), streamName))
+				// util.Logger().Info(fmt.Sprintf("read %d records from stream: %s", len(recordIds), streamName))
 				for i := 0; i < len(recordIds); i++ {
 					receivedRecord, err := ReceivedRecordFromPb(hstreamReocrds[i], recordIds[i])
 					if err != nil {

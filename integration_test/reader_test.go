@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/stretchr/testify/require"
 
 	"github.com/hstreamdb/hstreamdb-go/hstream"
@@ -130,7 +132,7 @@ func (s *testShardReaderSuite) readFromSpecialOffset(offset hstream.ShardOffset)
 			defer cancel()
 			for {
 				res, err := reader.Read(ctx)
-				if err == context.DeadlineExceeded {
+				if errors.Is(err, context.DeadlineExceeded) {
 					break
 				}
 				require.NoError(s.T(), err)
