@@ -300,6 +300,10 @@ func CacheStoreStatsTypeFromPb(tp *hstreampb.StatType_CacheStoreStat) (t CacheSt
 		t = CacheStoreReadInRecords
 	case hstreampb.CacheStoreStats_CSDeliveredInRecords:
 		t = CacheStoreDeliveredInRecords
+	case hstreampb.CacheStoreStats_CSDeliveredTotal:
+		t = CacheStoreDeliveredTotal
+	case hstreampb.CacheStoreStats_CSDeliveredFailed:
+		t = CacheStoreDeliveredFailed
 	}
 	return t
 }
