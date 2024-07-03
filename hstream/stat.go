@@ -220,6 +220,8 @@ const (
 	CacheStoreReadInBytes
 	CacheStoreReadInRecords
 	CacheStoreDeliveredInRecords
+	CacheStoreDeliveredTotal
+	CacheStoreDeliveredFailed
 )
 
 func (c CacheStoreStatsType) String() string {
@@ -238,6 +240,10 @@ func (c CacheStoreStatsType) String() string {
 		return "CacheStoreReadInRecords"
 	case CacheStoreDeliveredInRecords:
 		return "CacheStoreDeliveredInRecords"
+	case CacheStoreDeliveredTotal:
+		return "CacheStoreDeliveredTotal"
+	case CacheStoreDeliveredFailed:
+		return "CacheStoreDeliveredFailed"
 	}
 	return ""
 }
@@ -259,6 +265,10 @@ func (c CacheStoreStatsType) toPbStat() *hstreampb.StatType {
 		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSReadInRecords}
 	case CacheStoreDeliveredInRecords:
 		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSDeliveredInRecords}
+	case CacheStoreDeliveredTotal:
+		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSDeliveredTotal}
+	case CacheStoreDeliveredFailed:
+		tp = &hstreampb.StatType_CacheStoreStat{CacheStoreStat: hstreampb.CacheStoreStats_CSDeliveredFailed}
 	}
 	return &hstreampb.StatType{Stat: tp}
 }
